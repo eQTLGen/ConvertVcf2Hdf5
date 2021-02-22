@@ -1,18 +1,5 @@
 #!/usr/bin/env nextflow
 
-// 1. Filters in only the samples which are present in filter file. TODO!
-// Things this pipeline does:
-// 1. Fixes SNP names to format chr_pos_[ref]_[alt]
-// 2. Filters input .vcf files to include only predefined list of SNPs (NB! Implement if statements to make sure that input only included .vcf or .vcf.gz files)
-// 3. Makes individuals and probes folders to the output +
-// 4. Chunk all chromosome .vcf's into 25,000 SNP chunks +
-// 5. For each chunk calculate dosage + (NB! Double-check if missing value parts are needed in awk)
-// 6. Convert to hdf5
-// 7. Rename each chunk hdf5 based on index
-// 8. Adjust all chunks, so that all (aside from last) include 25,000 SNPs
-// 9. Tabix input .vcf
-// 10. Calculate SNP QC summary for each SNP
-
 def helpmessage() {
 
 log.info"""
