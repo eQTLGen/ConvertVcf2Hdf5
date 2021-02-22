@@ -24,11 +24,11 @@ This Nextflow pipeline can be used to convert imputed .vcf file folder into hdf5
 
 ## Setup the pipeline
 
-- Make a folder `genotype_conversion` and access there.
+1. Make a folder `genotype_conversion` and access there.
 
-- Make folder `tools`, go into this folder and have Nextflow executable installed: https://www.nextflow.io/docs/latest/getstarted.html#installation. After that, go back to `genotype_conversion`.
+2. Make folder `tools`, go into this folder and have Nextflow executable installed: https://www.nextflow.io/docs/latest/getstarted.html#installation. After that, go back to `genotype_conversion`.
 
-- Get the genotype conversion pipeline from here: https://gitlab.com/eqtlgen-group/ConvertVcf2Hdf5
+3. Get the genotype conversion pipeline from here: https://gitlab.com/eqtlgen-group/ConvertVcf2Hdf5
 
 You can either clone it by using git (if available):
 
@@ -36,11 +36,11 @@ You can either clone it by using git (if available):
 
 Or just download this from the link and unzip to `genotype_conversion` folder.
 
-- Make folder `help_files`.
+4. Make folder `help_files`.
 
-- Get file **SNPList_MAF_0005.txt** from here and put it into `help_files` folder.
+5. Get file **SNPList_MAF_0005.txt** from here and put it into `help_files` folder.
 
-- Make the tab-separated file listing all the samples to include into output hdf5 file and put it into `help_files`.
+6. Make the tab-separated file listing all the samples to include into output hdf5 file and put it into `help_files`.
 
 ## Running the conversion command
 
@@ -69,7 +69,7 @@ ${nextflow_path}/nextflow run test_ConvertVcf2Hdf5.nf \
 --outputpath '[**/path/to/your/output/genotype/hdf5/folder/**]' \
 --snplist '../help_files/SNPList_MAF_0005.txt' \
 --samplelist '../help_files/[**FileWithYourSampleIds.txt**]' \
---studyname '[**CohortName_PlatrformName**]' \
+--studyname '[**CohortName_PlatformName**]' \
 -with-report GenotypeConversionReport.html \
 -resume \
 -profile [**singularity_profile**/**conda_profile**],cluster_slurm
