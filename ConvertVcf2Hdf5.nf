@@ -397,7 +397,6 @@ process TabixFilteredVcfInput {
 }
 
 process CalculateSnpQcMetrics {
-// NB! Genotype-IO-1.0.6-SNAPSHOT-jar-with-dependencies.jar is only present in Singularity container and it currently does not work with conda
 
     tag {CalculateSnpQcMetrics}
 
@@ -412,7 +411,9 @@ process CalculateSnpQcMetrics {
 
     output:
       file ('*.vars') into (SNPQC_files, SNPQC_files2)
-
+    
+    script:
+    if(workflow.containerEngine == 'singularity'){
     """
     chr="\$(echo ${InputToSnpQc} |\
     sed -e "s/.*chr/chr/g" |\
@@ -425,7 +426,22 @@ process CalculateSnpQcMetrics {
     -I VCF \
     -o chr\${chr}_statistics
     """
+    } else {
+    """
+    chr="\$(echo ${InputToSnpQc} |\
+    sed -e "s/.*chr/chr/g" |\
+    grep -oP "chr[0-9]{1,2}")"
+
+    echo chr\${chr}
+
+    java -Xmx10g -Xms10g -jar $baseDir/bin/Genotype-IO-1.0.6-SNAPSHOT-jar-with-dependencies.jar \
+    -i ${InputToSnpQc}/chr\${chr}_FixedSnpNamesFiltered0005.vcf.gz \
+    -I VCF \
+    -o chr\${chr}_statistics
+    """
+    }
 }
+
 
 HelpChannel3 = SNPQC_files2.collect()
 CountFiles3 = HelpChannel3.size()
@@ -450,7 +466,7 @@ process CompressSnpQcFile {
       val (NameOfStudy) from Studyname
 
     output:
-      path ProbeAndIndToSnpQc into ProbeAndIndToWriteOut
+      path("*") into ProbeAndIndToWriteOut
 
     when:
       CountFiles3 == 22
@@ -459,5 +475,9 @@ process CompressSnpQcFile {
     gzip -f ${SnpQcReport}
 
     mv SNPQC.txt.gz ${ProbeAndIndToSnpQc}/SNPQC/${NameOfStudy}_SNPQC.txt.gz
+
+    mv ${ProbeAndIndToSnpQc}/* .
+    rm -r ${ProbeAndIndToSnpQc}
+
     """
 }
