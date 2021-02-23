@@ -343,7 +343,7 @@ process ConvertGenotypeToHdf5 {
 
     """
     echo ${InpHdf5Chunks}
-    chunk_id=\$(echo ${InpHdf5Chunks})
+    chunk_id=\$(echo ${InpHdf5Chunks} | sed -e "s/_.*//")
 
     mkdir output
 
@@ -480,4 +480,8 @@ process CompressSnpQcFile {
     rm -r ${ProbeAndIndToSnpQc}
 
     """
+}
+
+workflow.onComplete {
+    println ( workflow.success ? "Pipeline finished!" : "Something crashed...debug!" )
 }
