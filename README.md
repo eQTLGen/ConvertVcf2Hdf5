@@ -50,7 +50,7 @@ Or just download this from the gitlab download link and unzip into `genotype_con
 
 ### Running the conversion command
 
-Go to folder `ConvertVcf2Hdf5` and modify the SLURM script template `submit_genotype_conversion_template.sh` with your input paths.
+Go to folder `ConvertVcf2Hdf5` and modify the SLURM script template `submit_genotype_conversion_template.sh` with your full input paths.
 
 ```
 #!/bin/bash
@@ -68,17 +68,18 @@ module load python/2.7.15/native
 module load singularity/3.5.3
 module load squashfs/4.4
 
-nextflow_path=../tools/
+nextflow_path=[full path to your Nextflow executable]
 
 NXF_VER=20.10.0 ${nextflow_path}/nextflow run test_ConvertVcf2Hdf5.nf \
 --inputpath '[Folder with genotype files in .vcf format]' \
 --outputpath '[Folder where to write genotype data in h5 format]' \
---snplist '../help_files/SNPList_MAF_0005.txt' \
---samplelist '../help_files/[File with sample IDs]' \
+--snplist '[path to SNPList_MAF_0005.txt]' \
+--samplelist '[Path to file with sample IDs]' \
 --studyname '[CohortName_ExpressionPlatformName]' \
--profile [**singularity_profile**/**conda_profile**],cluster_slurm] \
+-profile [singularity_profile/conda_profile,cluster_slurm] \
 -with-report GenotypeConversionReport.html \
 -resume
+
 
 ```
 
@@ -118,7 +119,7 @@ Here is the estimate, how much time the conversion is expected to take.
 
 - CPU hours: \~80h
 
-- Final size of `work` subdirectory: \~500GB\
+- Final size of `work` subdirectory: \~500GB
 
 ## Acknowledgements
 
