@@ -21,6 +21,7 @@ Mandatory arguments:
 --snplist       SNPs to include into analysis.
 Optional arguments:
 --samplelist    Samples to include into analysis.
+--VcfOutput    If directory is specified, outputs filtered vcf files into this folder.
 """.stripIndent()
 
 }
@@ -35,6 +36,7 @@ params.inputpath = ''
 params.outputpath = ''
 params.studyname = ''
 params.samplelist = ''
+params.VcfOutput = ''
 
 //Show parameter values
 log.info """================================================================
@@ -55,6 +57,7 @@ summary['Output directory']                         = params.outputpath
 summary['SNP list']                                 = params.snplist
 summary['Sample list']                              = params.samplelist
 summary['Study name']                               = params.studyname
+summary['Output directory for vcf']                 = params.VcfOutput
 
 log.info summary.collect { k,v -> "${k.padRight(21)}: $v" }.join("\n")
 log.info "======================================================="
@@ -388,8 +391,8 @@ process TabixFilteredVcfInput {
       file InputVcf from VcfToTabix
 
     output:
-      tuple file(InputVcf), file("*_FixedSnpNamesFiltered0005.vcf.gz.tbi") into InputToSnpQc
-      file "*_FixedSnpNamesFiltered0005.vcf.gz.tbi" into TbiIndexFileToCount
+      tuple file(InputVcf), file("*_FixedSnpNamesFiltered0005.vcf.gz.tbi") into (InputToSnpQc,VcfToOutput)
+      file("*_FixedSnpNamesFiltered0005.vcf.gz.tbi") into TbiIndexFileToCount
 
     """
     tabix -p vcf ${InputVcf}
@@ -419,12 +422,12 @@ process CalculateSnpQcMetrics {
     sed -e "s/.*chr/chr/g" |\
     grep -oP "chr[0-9]{1,2}")"
 
-    echo chr\${chr}
+    echo \${chr}
 
     java -Xmx10g -Xms10g -jar /usr/bin/Genotype-IO-1.0.6-SNAPSHOT-jar-with-dependencies.jar \
-    -i ${InputToSnpQc}/chr\${chr}_FixedSnpNamesFiltered0005.vcf.gz \
+    -i ${InputToSnpQc}/\${chr}_FixedSnpNamesFiltered0005.vcf.gz \
     -I VCF \
-    -o chr\${chr}_statistics
+    -o \${chr}_statistics
     """
     } else {
     """
@@ -432,12 +435,12 @@ process CalculateSnpQcMetrics {
     sed -e "s/.*chr/chr/g" |\
     grep -oP "chr[0-9]{1,2}")"
 
-    echo chr\${chr}
+    echo \${chr}
 
     java -Xmx10g -Xms10g -jar $baseDir/bin/Genotype-IO-1.0.6-SNAPSHOT-jar-with-dependencies.jar \
-    -i ${InputToSnpQc}/chr\${chr}_FixedSnpNamesFiltered0005.vcf.gz \
+    -i ${InputToSnpQc}/\${chr}_FixedSnpNamesFiltered0005.vcf.gz \
     -I VCF \
-    -o chr\${chr}_statistics
+    -o \${chr}_statistics
     """
     }
 }
@@ -480,6 +483,34 @@ process CompressSnpQcFile {
     rm -r ${ProbeAndIndToSnpQc}
 
     """
+}
+
+process OutputVcf {
+
+    tag {OutputVcf}
+
+    cpus 1
+    memory '5 GB'
+    time '1h'
+    executor 'slurm'
+    clusterOptions '--job-name=OutputVcf'
+
+    publishDir "${params.VcfOutput}", mode: 'copy', overwrite: true
+
+    input:
+      file(filtred_vcf) from VcfToOutput
+
+    output:
+      file(filtred_vcf) into OuputVcf
+
+    when:
+      params.VcfOutput
+
+    shell
+    '''
+    echo !{filtred_vcf}
+    '''
+
 }
 
 workflow.onComplete {
