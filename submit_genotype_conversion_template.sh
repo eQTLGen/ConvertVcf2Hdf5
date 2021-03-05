@@ -15,7 +15,7 @@ module load squashfs/4.4
 
 nextflow_path=[full path to your Nextflow executable]
 
-NXF_VER=20.10.0 ${nextflow_path}/nextflow run test_ConvertVcf2Hdf5.nf \
+NXF_VER=20.10.0 ${nextflow_path}/nextflow run ConvertVcf2Hdf5.nf \
 --inputpath '[Folder with genotype files in .vcf format]' \
 --outputpath '[Folder where to write genotype data in h5 format]' \
 --snplist '[path to SNPList_MAF_0005.txt]' \
