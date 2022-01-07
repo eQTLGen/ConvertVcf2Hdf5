@@ -21,6 +21,6 @@ NXF_VER=20.10.0 ${nextflow_path}/nextflow run ConvertVcf2Hdf5.nf \
 --snplist '[path to SNPList_MAF_0005.txt]' \
 --samplelist '[Path to file with sample IDs]' \
 --studyname '[CohortName_ExpressionPlatformName]' \
--profile [singularity_profile/conda_profile,cluster_slurm] \
+-profile [singularity,slurm] \
 -with-report GenotypeConversionReport.html \
 -resume

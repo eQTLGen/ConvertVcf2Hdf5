@@ -4,7 +4,7 @@ def helpmessage() {
 
 log.info"""
 
-ConvertVcfToHdf5Parallelized v${workflow.manifest.version}"
+ConvertVcfToHdf5 v${workflow.manifest.version}"
 ===========================================================
 Pipeline for converting .vcf or bgzipped .vcf.gz files into hdf5 format.
 
@@ -12,7 +12,7 @@ This pipeline makes extensive use of the help scripts from R.Roschupkin (https:/
 
 Usage:
 
-nextflow run ConvertVcfToHdf5Parallelized.nf --inputpath '/inputfolder/' --outputpath '/outputfolder/' --studyname 'StudyName' --snplist [file with SNP list]
+nextflow run ConvertVcfToHdf5.nf --inputpath '/inputfolder/' --outputpath '/outputfolder/' --studyname 'StudyName' --snplist [file with SNP list]
 
 Mandatory arguments:
 --inputpath     Path to input vcf folder. It must contain only .vcf files or bgzipped .vcf.gz files. Must not contain any other file types (i.e. tabix .tbi).
@@ -21,7 +21,7 @@ Mandatory arguments:
 --snplist       SNPs to include into analysis.
 Optional arguments:
 --samplelist    Samples to include into analysis.
---VcfOutput    If directory is specified, outputs filtered vcf files into this folder.
+--VcfOutput     If directory is specified, outputs filtered vcf files into this folder.
 """.stripIndent()
 
 }
@@ -40,7 +40,7 @@ params.VcfOutput = ''
 
 //Show parameter values
 log.info """================================================================
-Genotype converter v${workflow.manifest.version}"
+ConvertVcfToHdf5 v${workflow.manifest.version}"
 ================================================================"""
 def summary = [:]
 summary['Pipeline Version']                         = workflow.manifest.version
@@ -62,223 +62,174 @@ summary['Output directory for vcf']                 = params.VcfOutput
 log.info summary.collect { k,v -> "${k.padRight(21)}: $v" }.join("\n")
 log.info "======================================================="
 
-InpDir = Channel.fromPath(params.inputpath)
-OutpDir = Channel.fromPath(params.outputpath)
-Studyname = Channel.value(params.studyname)
-SNPlist = file(params.snplist)
-if (params.samplelist) {SampleList = file(params.samplelist)}
+Channel.from(1..22)
+  .map { chr -> tuple("$chr", file("${params.inputpath}/*chr${chr}_*.vcf.gz")) }
+  .into { chr_vcf_pairs_rename_ch; chr_vcf_pairs_filter_ch }
 
-OrigVcf = Channel.fromPath(params.inputpath + "/*chr*")
-OrigVcf.into{OrigVcfToFilterSamples; OrigVcfToRenameFile}
+snp_list_ch = Channel.fromPath(params.snplist).collect()
+
+if (params.samplelist) { 
+    sample_list_ch = Channel.fromPath(params.samplelist).collect()
+    NumberOfSamples = Channel.fromPath(params.samplelist, checkIfExists: true).splitCsv().count().get()
+    log.info "Number of detected samples: " + NumberOfSamples
+  } else {
+    NumberOfSamples = 5000
+}
 
 process FilterSamples {
-
-    tag {FilterSamples}
+    tag {"FilterSamples_$chr"}
 
     cpus 1
-    memory '15 GB'
-    time '12h'
-    executor 'slurm'
+    memory '4 GB'
+    time { 1.hour + 1.minute / 5 * NumberOfSamples }
     clusterOptions '--job-name=FilterSamples'
 
     input:
-      path vcf from OrigVcfToFilterSamples
-      file samplefile from SampleList
+      tuple chr, file(vcf) from chr_vcf_pairs_filter_ch
+      file samplefile from sample_list_ch
 
     output:
-      env (chr) into (ChrFilterSamplesToFixVariantNames, ChrFilterSamplesToFilterVariants)
-      file ('*_SamplesFiltered.vcf.gz') into VcfFilterSamplesSamplesFiltered
+      tuple chr, file("${chr}_SamplesFiltered.vcf.gz") into filtered_vcf_samples_ch
 
     when:
-        params.samplelist
+      params.samplelist
 
-    shell:
-        '''
-        chr="$(echo !{vcf} |\
-        sed -e "s/.*chr/chr/g" |\
-        grep -oP "chr[0-9]{1,2}")"
-
-        echo ${chr}
-
-        bcftools view \
-        -S !{samplefile} \
-        --force-samples \
-        !{vcf} | bgzip -c > ${chr}_SamplesFiltered.vcf.gz
-        '''
+    script:
+      """
+      bcftools view \
+      -S ${samplefile} \
+      --force-samples \
+      ${vcf} | bgzip -c > ${chr}_SamplesFiltered.vcf.gz
+      """
 }
 
 process RenameFiles {
-
-    tag {RenameFile}
+    tag {"RenameFile_$chr"}
 
     cpus 1
-    memory '15 GB'
-    time '12h'
-    executor 'slurm'
+    memory '4 GB'
+    time { 1.hour + 1.minute / 5 * NumberOfSamples}
     clusterOptions '--job-name=RenameFiles'
 
     input:
-      path vcf from OrigVcfToRenameFile
+      tuple chr, file(vcf) from chr_vcf_pairs_rename_ch
 
     output:
-      env (chr) into (ChrRenameFileToFixVariantNames, ChrRenameFileToFilterVariants)
-      file ('*_SamplesFiltered.vcf.gz') into VcfRenameFilesSamplesFiltered
+      tuple chr, file("${chr}_SamplesFiltered.vcf.gz") into renamed_vcf_samples_ch
 
     when:
-        !params.samplelist
+      !params.samplelist
 
-    shell:
-        '''
-        chr="$(echo !{vcf} |\
-        sed -e "s/.*chr/chr/g" |\
-        grep -oP "chr[0-9]{1,2}")"
-
-        echo ${chr}
-
-        # Filter in subset of samples
-        mv !{vcf} ${chr}_SamplesFiltered.vcf.gz
-        '''
+    script:
+      """
+      # Filter in subset of samples
+      mv ${vcf} ${chr}_SamplesFiltered.vcf.gz
+      """
 }
 
 process FixVariantNames {
-
-    tag {FixVariantNames}
+    tag {"FixVariantNames_$chr"}
 
     cpus 1
-    memory '15 GB'
-    time '12h'
-    executor 'slurm'
+    memory '4 GB'
+    time { 1.hour + 1.minute / 5 * NumberOfSamples}
     clusterOptions '--job-name=FixVariantNames'
 
     input:
-      path vcf from VcfFilterSamplesSamplesFiltered.mix(VcfRenameFilesSamplesFiltered)
+      tuple chr, file(vcf) from filtered_vcf_samples_ch.mix(renamed_vcf_samples_ch)
 
     output:
-      file ('*_FixedSnpNames.vcf.gz') into VcfFixedSnpNames
-      env (chr) into ChrToFilterVariants
+      tuple chr, file("${chr}_FixedSnpNames.vcf.gz") into vcf_fixed_snp_names_ch
 
- 
-    """
-    chr="\$(echo ${vcf} |\
-    sed -e "s/.*chr/chr/g" |\
-    grep -oP "chr[0-9]{1,2}")"
-
-    echo \${chr}
-
-    bcftools view --max-alleles 2 ${vcf} \
-    | awk 'BEGIN {FS="\\t"; OFS="\\t"}; {if (substr(\$0,0,1) !~ "#"){\$3="chr"  \$1  ":"  \$2  "_"  \$4  "_" \$5;}print \$0;}' \
-    | bgzip -c > \${chr}_FixedSnpNames.vcf.gz
-    """
+    script:
+      """
+      bcftools view --max-alleles 2 ${vcf} \
+      | awk 'BEGIN {FS="\\t"; OFS="\\t"}; {if (substr(\$0,0,1) !~ "#"){\$3="chr"  \$1  ":"  \$2  "_"  \$4  "_" \$5;}print \$0;}' \
+      | bgzip -c > ${chr}_FixedSnpNames.vcf.gz
+      """
 }
 
 process FilterVariants {
-    tag {FilterVariants}
+    tag {"FilterVariants_$chr"}
 
     cpus 1
-    memory '10 GB'
-    time '10h'
-    executor 'slurm'
+    memory '4 GB'
+    time { 1.hour + 1.minute / 5 * NumberOfSamples}
     clusterOptions '--job-name=FilterVariants'
 
     input:
-      path vcf from VcfFixedSnpNames
-      file InclusionList from SNPlist
-      env chr from ChrToFilterVariants
+      tuple chr, file(vcf) from vcf_fixed_snp_names_ch
+      file inclusion_snp_list from snp_list_ch
 
     output:
-      file('*_FixedSnpNamesFiltered0005.vcf.gz') into (VcfToChunkVcf, VcfToMakeIndAndProbe, VcfToCountFiles, VcfToTabix, FixedNamesFilteredToHdfInput)
-
-    """    
-    vcftools --gzvcf ${vcf} \
-    --snps ${InclusionList} \
-    --recode \
-    --stdout | bgzip -c \
-    > \${chr}_FixedSnpNamesFiltered0005.vcf.gz
-    """
+      tuple chr, file("${chr}_FixedSnpNamesFiltered0005.vcf.gz") into (VcfToChunkVcf, VcfToTabix)
+      file("${chr}_FixedSnpNamesFiltered0005.vcf.gz") into VcfToMakeIndAndProbe
+    
+    script:
+      """    
+      vcftools --gzvcf ${vcf} \
+      --snps ${inclusion_snp_list} \
+      --recode \
+      --stdout | bgzip -c \
+      > ${chr}_FixedSnpNamesFiltered0005.vcf.gz
+      """
 }
 
-CountFiles = VcfToCountFiles.collect().size()
-InputFilesToIndProbe = VcfToMakeIndAndProbe.collect()
-
 process MakeIndAndProbe {
-
-    tag {MakeIndAndProbe}
+    publishDir "${params.outputpath}/", mode: 'copy', overwrite: true
 
     cpus 1
-    memory '15 GB'
-    time '12h'
-    executor 'slurm'
+    memory '4 GB'
+    time { 1.hour + 1.minute / 5 * NumberOfSamples}
     clusterOptions '--job-name=MakeIndAndProbe'
 
     input:
-      path InputFiles from InputFilesToIndProbe
-      val NameOfStudy from Studyname
-      val CountFiles from CountFiles
+      path InputFiles from VcfToMakeIndAndProbe.collect()
 
     output:
-      path OutputPath into IndProbeOutput
+      path "probes" 
+      path "individuals"
 
-    when:
-      CountFiles == 22
+    script:
+      """
+      mkdir -p InputPath
+      mv ${InputFiles} InputPath/.
 
-    """
-    InpPath="InputPath"
-    OutPath="OutputPath"
+      bash $baseDir/bin/helperscripts/VCF2hdf5_SortedChr.sh InputPath . $baseDir/bin/hase/ ${params.studyname}
 
-    mkdir -p \${InpPath}
-    mkdir -p \${OutPath}
-
-    mv ${InputFiles} \${InpPath}/.
-
-    bash $baseDir/bin/helperscripts/VCF2hdf5_SortedChr.sh \${InpPath} \${OutPath} $baseDir/bin/hase/ ${NameOfStudy}
-
-    # Remove unnecessary files
-    rm -rf \${OutPath}/tmp_files
-    rm -rf \${OutPath}/*.txt
-
-    # Make separate folder for SNP QC file
-    mkdir \${OutPath}/SNPQC
-    """
+      # Remove unnecessary files
+      rm -rf ./tmp_files
+      rm -rf ./*.txt
+      """
 }
 
 process ChunkVcf {
-
-    tag {ChunkVcf}
+    tag {"ChunkVcf_$chr"}
 
     cpus 1
-    memory '5 GB'
-    time '2h'
-    executor 'slurm'
+    memory '4 GB'
+    time { 1.hour + 1.minute / 100 * NumberOfSamples}
     clusterOptions '--job-name=ChunkVcf'
 
     input:
-      path vcf from VcfToChunkVcf
+      tuple chr, file(vcf) from VcfToChunkVcf
 
     output:
       path ('chr*') into rawchunks
 
-    """
-    chr="\$(echo ${vcf} |\
-    sed -e "s/.*chr/chr/g" |\
-    grep -oP "chr[0-9]{1,2}")"
-
-    echo \${chr}
-
-    zcat -f ${vcf} |\
-    awk 'BEGIN{FS="\t"}/^[^#]/{print }' |\
-    cut -f10- |\
-    split -a 3 -d -l 25000 - \${chr}_
-    """
+    script:
+      """
+      bcftools query -f "[\\t%DS]\\n" ${vcf} |\
+      cut -f2- |\
+      split -a 3 -d -l 25000 - chr${chr}_
+      """
 }
 
 process CalculateDosage {
 
-    tag {CalculateDosage}
-
     cpus 1
     memory '5 GB'
     time '45min'
-    executor 'slurm'
     clusterOptions '--job-name=CalculateDosage'
 
     input:
@@ -287,215 +238,146 @@ process CalculateDosage {
     output:
       file ('chr*_dosage') into dosagechunks
 
-    """
-    echo ${input_dosage_chunks}
-    cat ${input_dosage_chunks} | awk 'BEGIN{FS="\t"}{R=""; for (i=1; i<=NF; i++){split(\$i, a, ":"); split(a[2], b, ","); if(i==1){R=b[2] + 2*b[3]}else{R=R"\t"b[2] + 2*b[3]}}; print R}' > ${input_dosage_chunks}_dosage
-    """
+    script:
+      """
+      cat ${input_dosage_chunks} > ${input_dosage_chunks}_dosage
+      """
 }
 
 process FixChunkSize {
 
-    tag {FixChunkSize}
-
     cpus 4
-    memory '25 GB'
-    time '6h'
-    executor 'slurm'
+    memory '5 GB'
+    time { 1.hour + 1.minute / 5 * NumberOfSamples}
     clusterOptions '--job-name=FixChunkSize'
 
     input:
       file input_dosage_chunks from dosagechunks.toSortedList()
-      val (NameOfStudy) from Studyname
 
     output:
       file ('*.txt') into DosageChunksToHdf5
 
-    """
-    Rscript --vanilla $baseDir/bin/helperscripts/ChunkFixer.R \$PWD 25000
+    script:
+      """
+      Rscript --vanilla $baseDir/bin/helperscripts/ChunkFixer.R \$PWD 25000
 
-    # Rename the chunks
-    ind=0
-    for i in `ls \$PWD | sort -V`
-    do
+      # Rename the chunks
+      ind=0
+      for i in `ls \$PWD | sort -V`
+      do
 
-    echo \${i}
+      echo \${i}
 
-    mv \${i} \${ind}_${NameOfStudy}.txt
-    ind=\$((\$ind + 1))
+      mv \${i} \${ind}_${params.studyname}.txt
+      ind=\$((\$ind + 1))
 
-    done
-    """
+      done
+      """
 }
 
 process ConvertGenotypeToHdf5 {
-
-  tag {ConvertGenotypeToHdf5}
+    publishDir "${params.outputpath}/", mode: 'copy', overwrite: true
 
     cpus 1
     memory '2 GB'
     time '10min'
-    executor 'slurm'
-    clusterOptions '--job-name=ConvertGenToHdf5'
+    clusterOptions '--job-name=ConvertGenotypeToHdf5'
 
     input:
       file (InpHdf5Chunks) from DosageChunksToHdf5.flatMap()
-      val (NameOfStudy) from Studyname
 
     output:
-      file ('output/genotype/*.h5') into Hdf5ToCollect
+      file ('genotype/*.h5') 
 
-    """
-    echo ${InpHdf5Chunks}
-    chunk_id=\$(echo ${InpHdf5Chunks} | sed -e "s/_.*//")
+    script:
+      """
+      echo ${InpHdf5Chunks}
+      chunk_id=\$(echo ${InpHdf5Chunks} | sed -e "s/_.*//")
 
-    mkdir output
+      mkdir output
 
-    python $baseDir/bin/hase/tools/VCF2hdf5.py -flag chunk -id \${chunk_id} -data ${InpHdf5Chunks} -out output -study_name ${NameOfStudy}
-    
-    """
-}
+      python $baseDir/bin/hase/tools/VCF2hdf5.py -flag chunk -id \${chunk_id} -data ${InpHdf5Chunks} -out output -study_name ${params.studyname}
 
-process CollectHdf5Chunks {
-
-  tag {CollectHdf5Chunks}
-
-    cpus 1
-    memory '2 GB'
-    time '10min'
-    executor 'slurm'
-    clusterOptions '--job-name=CollectHdf5Chunks'
-
-    input:
-      file (Hdf5Files) from Hdf5ToCollect.flatMap()
-      path IndProbeFolder from IndProbeOutput
-
-    output:
-      path IndProbeFolder into ProbeAndIndToSnpQc
-
-    """
-    mv ${Hdf5Files} ${IndProbeFolder}/genotype/.
-    """
+      mkdir genotype
+      mv output/genotype/*.h5 genotype/
+      """
 }
 
 process TabixFilteredVcfInput {
 
-    tag {TabixFilteredVcfInput}
+    tag {"TabixFilteredVcfInput_$chr"}
 
     cpus 1
-    memory '10 GB'
-    time '2h'
-    executor 'slurm'
+    memory '4 GB'
+    time { 1.hour + 1.minute / 100 * NumberOfSamples}
     clusterOptions '--job-name=TabixFilteredVcfInput'
 
     input:
-      file InputVcf from VcfToTabix
+      tuple chr, file(InputVcf) from VcfToTabix
 
     output:
-      tuple file(InputVcf), file("*_FixedSnpNamesFiltered0005.vcf.gz.tbi") into (InputToSnpQc,VcfToOutput)
-      file("*_FixedSnpNamesFiltered0005.vcf.gz.tbi") into TbiIndexFileToCount
+      tuple chr, file(InputVcf), file("${InputVcf}.tbi") into (InputToSnpQc,VcfToOutput)
 
-    """
-    tabix -p vcf ${InputVcf}
-    """
+    script:
+      """
+      tabix -p vcf ${InputVcf}
+      """
 }
 
 process CalculateSnpQcMetrics {
 
-    tag {CalculateSnpQcMetrics}
+    tag {"CalculateSnpQcMetrics_$chr"}
 
     cpus 1
     memory '10 GB'
-    time '10h'
-    executor 'slurm'
+    time { 1.hour + 1.minute / 5 * NumberOfSamples}
     clusterOptions '--job-name=CalculateSnpQcMetrics'
 
     input:
-      path InputToSnpQc from InputToSnpQc
+      tuple chr, file(InputToSnpQc), file(InputToSnpQc_index) from InputToSnpQc
 
     output:
-      file ('*.vars') into (SNPQC_files, SNPQC_files2)
+      file ("${chr}_statistics.vars") into SNPQC_files
     
     script:
-    if(workflow.containerEngine == 'singularity'){
-    """
-    chr="\$(echo ${InputToSnpQc} |\
-    sed -e "s/.*chr/chr/g" |\
-    grep -oP "chr[0-9]{1,2}")"
+      """
+      java -Xmx8g -Xms8g -jar $baseDir/bin/Genotype-IO-1.0.6-SNAPSHOT-jar-with-dependencies.jar \
+        -i ${InputToSnpQc} \
+        -I VCF \
+        -o ${chr}_statistics
 
-    echo \${chr}
-
-    java -Xmx10g -Xms10g -jar /usr/bin/Genotype-IO-1.0.6-SNAPSHOT-jar-with-dependencies.jar \
-    -i ${InputToSnpQc}/\${chr}_FixedSnpNamesFiltered0005.vcf.gz \
-    -I VCF \
-    -o \${chr}_statistics
-    """
-    } else {
-    """
-    chr="\$(echo ${InputToSnpQc} |\
-    sed -e "s/.*chr/chr/g" |\
-    grep -oP "chr[0-9]{1,2}")"
-
-    echo \${chr}
-
-    java -Xmx10g -Xms10g -jar $baseDir/bin/Genotype-IO-1.0.6-SNAPSHOT-jar-with-dependencies.jar \
-    -i ${InputToSnpQc}/\${chr}_FixedSnpNamesFiltered0005.vcf.gz \
-    -I VCF \
-    -o \${chr}_statistics
-    """
-    }
+      bcftools query -f "%IMPUTED\\t%TYPED\\t%TYPED_ONLY\\n" ${InputToSnpQc} > ${chr}_imputation_info
+      paste ${chr}_statistics.vars ${chr}_imputation_info > ${chr}_statistics.vars
+      """
 }
 
-
-HelpChannel3 = SNPQC_files2.collect()
-CountFiles3 = HelpChannel3.size()
-
 process CompressSnpQcFile {
-
-    tag {CompressSnpQcFile}
+    publishDir "${params.outputpath}/SNPQC", mode: 'copy', overwrite: true
 
     cpus 1
     memory '5 GB'
     time '1h'
-    executor 'slurm'
     clusterOptions '--job-name=CompressSnpQcFile'
 
-    publishDir "${params.outputpath}", mode: 'copy', overwrite: true
-
     input:
-      file SnpQcReport from SNPQC_files.flatten().collectFile(name: 'SNPQC.txt', keepHeader: true, sort: true)
-      val CountFiles3 from CountFiles3
-      path outputpath from OutpDir
-      path ProbeAndIndToSnpQc from ProbeAndIndToSnpQc
-      val (NameOfStudy) from Studyname
+      file SnpQcReport from SNPQC_files.collectFile(name: "${params.studyname}_SNPQC.txt", keepHeader: true, sort: true)
 
     output:
-      path("*") into ProbeAndIndToWriteOut
+      path("${params.studyname}_SNPQC.txt.gz")
 
-    when:
-      CountFiles3 == 22
-
-    """
-    gzip -f ${SnpQcReport}
-
-    mv SNPQC.txt.gz ${ProbeAndIndToSnpQc}/SNPQC/${NameOfStudy}_SNPQC.txt.gz
-
-    mv ${ProbeAndIndToSnpQc}/* .
-    rm -r ${ProbeAndIndToSnpQc}
-
-    """
+    script:
+      """
+      gzip -f ${SnpQcReport}
+      """
 }
 
 process OutputVcf {
-
-    tag {OutputVcf}
+    publishDir "${params.VcfOutput}", mode: 'copy', overwrite: true
 
     cpus 1
-    memory '5 GB'
+    memory '2 GB'
     time '1h'
-    executor 'slurm'
     clusterOptions '--job-name=OutputVcf'
-
-    publishDir "${params.VcfOutput}", mode: 'copy', overwrite: true
 
     input:
       file(filtred_vcf) from VcfToOutput
@@ -506,10 +388,10 @@ process OutputVcf {
     when:
       params.VcfOutput
 
-    shell
-    '''
-    echo !{filtred_vcf}
-    '''
+    script:
+      """
+      echo ${filtred_vcf}
+      """
 
 }
 
