@@ -3,7 +3,6 @@
 def helpmessage() {
 
 log.info"""
-
 ConvertVcfToHdf5 v${workflow.manifest.version}"
 ===========================================================
 Pipeline for converting .vcf or bgzipped .vcf.gz files into hdf5 format.
@@ -15,7 +14,7 @@ Usage:
 nextflow run ConvertVcfToHdf5.nf --inputpath '/inputfolder/' --outputpath '/outputfolder/' --studyname 'StudyName' --snplist [file with SNP list]
 
 Mandatory arguments:
---inputpath     Path to input vcf folder. It must contain only .vcf files or bgzipped .vcf.gz files. Must not contain any other file types (i.e. tabix .tbi).
+--inputpath     Path to input vcf folder. It must contain bgzipped .vcf.gz files.
 --outputpath    Path to output folder where genotype data is written in .hdf5 format.
 --studyname     Name of the study.
 --snplist       SNPs to include into analysis.
@@ -77,12 +76,8 @@ if (params.samplelist) {
 }
 
 process FilterSamples {
-    tag {"FilterSamples_$chr"}
 
-    cpus 1
-    memory '4 GB'
-    time { 1.hour + 1.minute / 5 * NumberOfSamples }
-    clusterOptions '--job-name=FilterSamples'
+    tag {"FilterSamples_$chr"}
 
     input:
       tuple chr, file(vcf) from chr_vcf_pairs_filter_ch
@@ -104,12 +99,8 @@ process FilterSamples {
 }
 
 process RenameFiles {
-    tag {"RenameFile_$chr"}
 
-    cpus 1
-    memory '4 GB'
-    time { 1.hour + 1.minute / 5 * NumberOfSamples}
-    clusterOptions '--job-name=RenameFiles'
+    tag {"RenameFile_$chr"}
 
     input:
       tuple chr, file(vcf) from chr_vcf_pairs_rename_ch
@@ -128,12 +119,8 @@ process RenameFiles {
 }
 
 process FixVariantNames {
-    tag {"FixVariantNames_$chr"}
 
-    cpus 1
-    memory '4 GB'
-    time { 1.hour + 1.minute / 5 * NumberOfSamples}
-    clusterOptions '--job-name=FixVariantNames'
+    tag {"FixVariantNames_$chr"}
 
     input:
       tuple chr, file(vcf) from filtered_vcf_samples_ch.mix(renamed_vcf_samples_ch)
@@ -150,12 +137,8 @@ process FixVariantNames {
 }
 
 process FilterVariants {
-    tag {"FilterVariants_$chr"}
 
-    cpus 1
-    memory '4 GB'
-    time { 1.hour + 1.minute / 5 * NumberOfSamples}
-    clusterOptions '--job-name=FilterVariants'
+    tag {"FilterVariants_$chr"}
 
     input:
       tuple chr, file(vcf) from vcf_fixed_snp_names_ch
@@ -176,12 +159,8 @@ process FilterVariants {
 }
 
 process MakeIndAndProbe {
-    publishDir "${params.outputpath}/", mode: 'copy', overwrite: true
 
-    cpus 1
-    memory '4 GB'
-    time { 1.hour + 1.minute / 5 * NumberOfSamples}
-    clusterOptions '--job-name=MakeIndAndProbe'
+    publishDir "${params.outputpath}/", mode: 'copy', overwrite: true
 
     input:
       path InputFiles from VcfToMakeIndAndProbe.collect()
@@ -204,12 +183,8 @@ process MakeIndAndProbe {
 }
 
 process ChunkVcf {
-    tag {"ChunkVcf_$chr"}
 
-    cpus 1
-    memory '4 GB'
-    time { 1.hour + 1.minute / 100 * NumberOfSamples}
-    clusterOptions '--job-name=ChunkVcf'
+    tag {"ChunkVcf_$chr"}
 
     input:
       tuple chr, file(vcf) from VcfToChunkVcf
@@ -227,11 +202,6 @@ process ChunkVcf {
 
 process CalculateDosage {
 
-    cpus 1
-    memory '5 GB'
-    time '45min'
-    clusterOptions '--job-name=CalculateDosage'
-
     input:
       file input_dosage_chunks from rawchunks.flatten()
 
@@ -245,11 +215,6 @@ process CalculateDosage {
 }
 
 process FixChunkSize {
-
-    cpus 4
-    memory '5 GB'
-    time { 1.hour + 1.minute / 5 * NumberOfSamples}
-    clusterOptions '--job-name=FixChunkSize'
 
     input:
       file input_dosage_chunks from dosagechunks.toSortedList()
@@ -276,12 +241,8 @@ process FixChunkSize {
 }
 
 process ConvertGenotypeToHdf5 {
-    publishDir "${params.outputpath}/", mode: 'copy', overwrite: true
 
-    cpus 1
-    memory '2 GB'
-    time '10min'
-    clusterOptions '--job-name=ConvertGenotypeToHdf5'
+    publishDir "${params.outputpath}/", mode: 'copy', overwrite: true
 
     input:
       file (InpHdf5Chunks) from DosageChunksToHdf5.flatMap()
@@ -307,11 +268,6 @@ process TabixFilteredVcfInput {
 
     tag {"TabixFilteredVcfInput_$chr"}
 
-    cpus 1
-    memory '4 GB'
-    time { 1.hour + 1.minute / 100 * NumberOfSamples}
-    clusterOptions '--job-name=TabixFilteredVcfInput'
-
     input:
       tuple chr, file(InputVcf) from VcfToTabix
 
@@ -328,11 +284,6 @@ process CalculateSnpQcMetrics {
 
     tag {"CalculateSnpQcMetrics_$chr"}
 
-    cpus 1
-    memory '10 GB'
-    time { 1.hour + 1.minute / 5 * NumberOfSamples}
-    clusterOptions '--job-name=CalculateSnpQcMetrics'
-
     input:
       tuple chr, file(InputToSnpQc), file(InputToSnpQc_index) from InputToSnpQc
 
@@ -347,17 +298,13 @@ process CalculateSnpQcMetrics {
         -o ${chr}_statistics
 
       bcftools query -f "%IMPUTED\\t%TYPED\\t%TYPED_ONLY\\n" ${InputToSnpQc} > ${chr}_imputation_info
-      paste ${chr}_statistics.vars ${chr}_imputation_info > ${chr}_statistics.vars
+      paste -d '\t' ${chr}_statistics.vars ${chr}_imputation_info > ${chr}_statistics.vars
       """
 }
 
 process CompressSnpQcFile {
-    publishDir "${params.outputpath}/SNPQC", mode: 'copy', overwrite: true
 
-    cpus 1
-    memory '5 GB'
-    time '1h'
-    clusterOptions '--job-name=CompressSnpQcFile'
+    publishDir "${params.outputpath}/SNPQC", mode: 'copy', overwrite: true
 
     input:
       file SnpQcReport from SNPQC_files.collectFile(name: "${params.studyname}_SNPQC.txt", keepHeader: true, sort: true)
@@ -372,12 +319,8 @@ process CompressSnpQcFile {
 }
 
 process OutputVcf {
-    publishDir "${params.VcfOutput}", mode: 'copy', overwrite: true
 
-    cpus 1
-    memory '2 GB'
-    time '1h'
-    clusterOptions '--job-name=OutputVcf'
+    publishDir "${params.VcfOutput}", mode: 'copy', overwrite: true
 
     input:
       file(filtred_vcf) from VcfToOutput

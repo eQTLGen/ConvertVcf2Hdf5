@@ -18,7 +18,7 @@ This is Nextflow pipeline for converting imputed .vcf file folder into hdf5 form
 
 ### Requirements for the input data
 
-- Input .vcf folder should contain 22 .vcf or bgzipped .vcf.gz files.
+- Input .vcf folder should contain 22 bgzipped .vcf.gz files.
 
 - It should not contain other file types (e.g. .vcf.gz.tbi or README).
 
@@ -76,7 +76,7 @@ NXF_VER=20.10.0 ${nextflow_path}/nextflow run test_ConvertVcf2Hdf5.nf \
 --snplist '[path to SNPList_MAF_0005.txt]' \
 --samplelist '[Path to file with sample IDs]' \
 --studyname '[CohortName_ExpressionPlatformName]' \
--profile [singularity_profile/conda_profile,cluster_slurm] \
+-profile [slurm,singularity] \
 -with-report GenotypeConversionReport.html \
 -resume
 
