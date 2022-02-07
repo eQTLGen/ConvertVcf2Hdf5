@@ -23,8 +23,8 @@ studyname=[your study nameCohortName_ExpressionPlatformName]
 # --samplelist '[Path to file with sample IDs]'
 
 NXF_VER=20.10.0 ${nextflow_path}/nextflow run ConvertVcf2Hdf5.nf \
---inputpath ${genopath} \
---outputpath ${outputpath} \
+--vcf ${genopath} \
+--outdir ${outputpath} \
 --snplist ${snplist} \
 --studyname ${studyname} \
 -profile slurm,singularity \

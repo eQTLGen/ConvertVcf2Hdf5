@@ -11,15 +11,14 @@ This pipeline makes extensive use of the help scripts from R.Roschupkin (https:/
 
 Usage:
 
-nextflow run ConvertVcfToHdf5.nf --inputpath '/inputfolder/' --outputpath '/outputfolder/' --studyname 'StudyName' --snplist [file with SNP list]
+nextflow run ConvertVcfToHdf5.nf --inputpath '/inputfolder/' --outdir '/outputfolder/' --studyname 'StudyName' --snplist [file with SNP list]
 
 Mandatory arguments:
---inputpath     Path to input vcf folder. It must contain bgzipped .vcf.gz files.
---outputpath    Path to output folder where genotype data is written in .hdf5 format.
+--vcf     Path to input vcf folder. It must contain bgzipped .vcf.gz files.
+--outdir    Path to output folder where genotype data is written in .hdf5 format.
 --studyname     Name of the study.
 --snplist       SNPs to include into analysis.
 Optional arguments:
---samplelist    Samples to include into analysis.
 --VcfOutput     If directory is specified, outputs filtered vcf files into this folder.
 """.stripIndent()
 
@@ -31,10 +30,9 @@ if (params.help){
 }
 
 // Default parameters
-params.inputpath = ''
-params.outputpath = ''
+params.vcf = ''
+params.outdir = ''
 params.studyname = ''
-params.samplelist = ''
 params.VcfOutput = ''
 
 //Show parameter values
@@ -51,10 +49,9 @@ summary['Script dir']                               = workflow.projectDir
 summary['Config Profile']                           = workflow.profile
 summary['Container Engine']                         = workflow.containerEngine
 if(workflow.containerEngine) summary['Container']   = workflow.container
-summary['Input genotype directory']                 = params.inputpath
-summary['Output directory']                         = params.outputpath
+summary['Input genotype directory']                 = params.vcf
+summary['Output directory']                         = params.outdir
 summary['SNP list']                                 = params.snplist
-summary['Sample list']                              = params.samplelist
 summary['Study name']                               = params.studyname
 summary['Output directory for vcf']                 = params.VcfOutput
 
@@ -62,68 +59,38 @@ log.info summary.collect { k,v -> "${k.padRight(21)}: $v" }.join("\n")
 log.info "======================================================="
 
 Channel.from(1..22)
-  .map { chr -> tuple("$chr", file("${params.inputpath}/*chr${chr}_*.vcf.gz")) }
-  .into { chr_vcf_pairs_rename_ch; chr_vcf_pairs_filter_ch }
+  .map { chr -> tuple("$chr", file("${params.vcf}/*chr${chr}.dose.vcf.gz")) }
+  .into { chr_vcf_pairs_fixnames; chr_vcf_pairs_count_samples }
 
 snp_list_ch = Channel.fromPath(params.snplist).collect()
 
-if (params.samplelist) { 
-    sample_list_ch = Channel.fromPath(params.samplelist).collect()
-    NumberOfSamples = Channel.fromPath(params.samplelist, checkIfExists: true).splitCsv().count().get()
-    log.info "Number of detected samples: " + NumberOfSamples
-  } else {
-    NumberOfSamples = 5000
-}
-
-process FilterSamples {
-
-    tag {"FilterSamples_$chr"}
+process CountSamples {
 
     input:
-      tuple chr, file(vcf) from chr_vcf_pairs_filter_ch
-      file samplefile from sample_list_ch
+      tuple chr, file(vcf) from chr_vcf_pairs_count_samples
 
     output:
-      tuple chr, file("${chr}_SamplesFiltered.vcf.gz") into filtered_vcf_samples_ch
+       path "sample_list.txt" into SampleList
 
     when:
-      params.samplelist
+      chr==22
 
     script:
       """
-      bcftools view \
-      -S ${samplefile} \
-      --force-samples \
-      ${vcf} | bgzip -c > ${chr}_SamplesFiltered.vcf.gz
+      # Count the number of samples in the vcf file
+      bcftools query -l ${vcf} > sample_list.txt
       """
 }
 
-process RenameFiles {
-
-    tag {"RenameFile_$chr"}
-
-    input:
-      tuple chr, file(vcf) from chr_vcf_pairs_rename_ch
-
-    output:
-      tuple chr, file("${chr}_SamplesFiltered.vcf.gz") into renamed_vcf_samples_ch
-
-    when:
-      !params.samplelist
-
-    script:
-      """
-      # Filter in subset of samples
-      mv ${vcf} ${chr}_SamplesFiltered.vcf.gz
-      """
-}
+NumberOfSamples = SampleList.splitCsv().count().get()
+log.info "Number of detected samples: " + NumberOfSamples
 
 process FixVariantNames {
 
     tag {"FixVariantNames_$chr"}
 
     input:
-      tuple chr, file(vcf) from filtered_vcf_samples_ch.mix(renamed_vcf_samples_ch)
+      tuple chr, file(vcf) from chr_vcf_pairs_fixnames
 
     output:
       tuple chr, file("${chr}_FixedSnpNames.vcf.gz") into vcf_fixed_snp_names_ch
@@ -152,6 +119,7 @@ process FilterVariants {
       """    
       vcftools --gzvcf ${vcf} \
       --snps ${inclusion_snp_list} \
+      --recode-INFO-all \
       --recode \
       --stdout | bgzip -c \
       > ${chr}_FixedSnpNamesFiltered0005.vcf.gz
@@ -160,7 +128,7 @@ process FilterVariants {
 
 process MakeIndAndProbe {
 
-    publishDir "${params.outputpath}/", mode: 'copy', overwrite: true
+    publishDir "${params.outdir}/", mode: 'copy', overwrite: true
 
     input:
       path InputFiles from VcfToMakeIndAndProbe.collect()
@@ -190,34 +158,20 @@ process ChunkVcf {
       tuple chr, file(vcf) from VcfToChunkVcf
 
     output:
-      path ('chr*') into rawchunks
+      path ("chr${chr}*") into dosagechunks
 
     script:
       """
       bcftools query -f "[\\t%DS]\\n" ${vcf} |\
       cut -f2- |\
-      split -a 3 -d -l 25000 - chr${chr}_
-      """
-}
-
-process CalculateDosage {
-
-    input:
-      file input_dosage_chunks from rawchunks.flatten()
-
-    output:
-      file ('chr*_dosage') into dosagechunks
-
-    script:
-      """
-      cat ${input_dosage_chunks} > ${input_dosage_chunks}_dosage
+      split -a 3 -d -l 25000 - chr${chr}_dosage
       """
 }
 
 process FixChunkSize {
 
     input:
-      file input_dosage_chunks from dosagechunks.toSortedList()
+      file input_dosage_chunks from dosagechunks.flatten().toSortedList()
 
     output:
       file ('*.txt') into DosageChunksToHdf5
@@ -242,7 +196,7 @@ process FixChunkSize {
 
 process ConvertGenotypeToHdf5 {
 
-    publishDir "${params.outputpath}/", mode: 'copy', overwrite: true
+    publishDir "${params.outdir}/", mode: 'copy', overwrite: true
 
     input:
       file (InpHdf5Chunks) from DosageChunksToHdf5.flatMap()
@@ -304,7 +258,7 @@ process CalculateSnpQcMetrics {
 
 process CompressSnpQcFile {
 
-    publishDir "${params.outputpath}/SNPQC", mode: 'copy', overwrite: true
+    publishDir "${params.outdir}/SNPQC", mode: 'copy', overwrite: true
 
     input:
       file SnpQcReport from SNPQC_files.collectFile(name: "${params.studyname}_SNPQC.txt", keepHeader: true, sort: true)
