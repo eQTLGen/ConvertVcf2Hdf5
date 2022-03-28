@@ -1,0 +1,32 @@
+name: eQTLGenPhase2Env
+channels:
+  - defaults
+  - conda-forge
+  - bioconda
+  - r
+  - anaconda
+dependencies:
+  - python=2.7.15
+  - pip=19.3.1
+  - hdf5=1.10.7
+  - vcftools=0.1.14
+  - bcftools=1.9
+  - tabix=0.2.6
+  - gcc_linux-64=7.3.0
+  - gfortran_linux-64=7.3.0
+  - r-base=3.6.1
+  - r-data.table=1.12.2
+  - r-stringr=1.4.0
+  - java-jdk=8.0.112
+  - gawk=5.0.1
+  - coreutils=8.31
+  - pip:
+    - bitarray==1.0.1
+    - Cython==0.29.13
+    - h5py==2.10.0
+    - numpy==1.16.2
+    - pandas==0.24.2
+    - scipy==1.2.2
+    - tables==3.5.2
+    - natsort==6.2.1
+prefix: ./eQTLGenPhase2Env

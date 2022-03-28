@@ -12,21 +12,18 @@ module load singularity/3.5.3
 module load squashfs/4.4
 
 # Define paths
-nextflow_path=[full path to your Nextflow executable]
+nextflow_path=../../tools/  # Path to Nextflow executable, no need to adjust if folder structure is same as recommended in cookbook.
 
 genopath=[Folder with input genotype files in .vcf.gz format]
-outputpath=[Folder where to write genotype data in h5 format]
-snplist=[path to the SNP ID list]
-studyname=[your study nameCohortName_ExpressionPlatformName]
+outputpath=../output/ # Path to output folder, no need to adjust if the folder structure is same as recommended in cookbook.
+cohortname=[your study name CohortName_ExpressionPlatformName]
 
-# Optional argument for the command
+# Optional argument
 # --samplelist '[Path to file with sample IDs]'
 
 NXF_VER=20.10.0 ${nextflow_path}/nextflow run ConvertVcf2Hdf5.nf \
 --vcf ${genopath} \
 --outdir ${outputpath} \
---snplist ${snplist} \
---studyname ${studyname} \
+--cohort_name ${cohortname} \
 -profile slurm,singularity \
--with-report GenotypeConversionReport.html \
 -resume

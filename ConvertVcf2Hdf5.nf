@@ -5,34 +5,32 @@ def helpmessage() {
 log.info"""
 ConvertVcfToHdf5 v${workflow.manifest.version}"
 ===========================================================
-Pipeline for converting .vcf or bgzipped .vcf.gz files into hdf5 format.
+Pipeline for converting bgzipped .vcf.gz files into hdf5 format.
 
 This pipeline makes extensive use of the help scripts from R.Roschupkin (https://github.com/roshchupkin/hase/) but, in order to speed those up, parallelizes conversion task in the HPC cluster.
 
 Usage:
 
-nextflow run ConvertVcfToHdf5.nf --inputpath '/inputfolder/' --outdir '/outputfolder/' --studyname 'StudyName' --snplist [file with SNP list]
+nextflow run ConvertVcfToHdf5.nf \
+--vcf '/inputfolder/' \
+--cohort_name 'StudyName' \
+--outdir '/outputfolder/'
 
 Mandatory arguments:
---vcf     Path to input vcf folder. It must contain bgzipped .vcf.gz files.
---outdir    Path to output folder where genotype data is written in .hdf5 format.
---studyname     Name of the study.
---snplist       SNPs to include into analysis.
+--vcf             Path to input vcf folder. It must contain bgzipped .vcf.gz files.
+--outdir          Path to output folder where genotype data is written in .hdf5 format.
+--cohort_name     Name of the study.
+
 Optional arguments:
 --VcfOutput     If directory is specified, outputs filtered vcf files into this folder.
 """.stripIndent()
 
 }
 
-if (params.help){
-    helpmessage()
-    exit 0
-}
-
 // Default parameters
 params.vcf = ''
 params.outdir = ''
-params.studyname = ''
+params.cohort_name = ''
 params.VcfOutput = ''
 
 //Show parameter values
@@ -51,18 +49,15 @@ summary['Container Engine']                         = workflow.containerEngine
 if(workflow.containerEngine) summary['Container']   = workflow.container
 summary['Input genotype directory']                 = params.vcf
 summary['Output directory']                         = params.outdir
-summary['SNP list']                                 = params.snplist
-summary['Study name']                               = params.studyname
+summary['Cohort name']                              = params.cohort_name
 summary['Output directory for vcf']                 = params.VcfOutput
 
 log.info summary.collect { k,v -> "${k.padRight(21)}: $v" }.join("\n")
 log.info "======================================================="
 
 Channel.from(1..22)
-  .map { chr -> tuple("$chr", file("${params.vcf}/*chr${chr}.dose.vcf.gz")) }
+  .map { chr -> tuple("$chr", file("${params.vcf}/*chr${chr}*.vcf.gz")) }
   .into { chr_vcf_pairs_fixnames; chr_vcf_pairs_count_samples }
-
-snp_list_ch = Channel.fromPath(params.snplist).collect()
 
 process CountSamples {
 
@@ -94,6 +89,7 @@ process FixVariantNames {
 
     output:
       tuple chr, file("${chr}_FixedSnpNames.vcf.gz") into vcf_fixed_snp_names_ch
+      file("${chr}_FixedSnpNames.vcf.gz") into VcfToMakeIndAndProbe 
 
     script:
       """
@@ -103,28 +99,7 @@ process FixVariantNames {
       """
 }
 
-process FilterVariants {
-
-    tag {"FilterVariants_$chr"}
-
-    input:
-      tuple chr, file(vcf) from vcf_fixed_snp_names_ch
-      file inclusion_snp_list from snp_list_ch
-
-    output:
-      tuple chr, file("${chr}_FixedSnpNamesFiltered0005.vcf.gz") into (VcfToChunkVcf, VcfToTabix)
-      file("${chr}_FixedSnpNamesFiltered0005.vcf.gz") into VcfToMakeIndAndProbe
-    
-    script:
-      """    
-      vcftools --gzvcf ${vcf} \
-      --snps ${inclusion_snp_list} \
-      --recode-INFO-all \
-      --recode \
-      --stdout | bgzip -c \
-      > ${chr}_FixedSnpNamesFiltered0005.vcf.gz
-      """
-}
+vcf_fixed_snp_names_ch.into{VcfToChunkVcf, VcfToTabix}
 
 process MakeIndAndProbe {
 
@@ -261,10 +236,10 @@ process CompressSnpQcFile {
     publishDir "${params.outdir}/SNPQC", mode: 'copy', overwrite: true
 
     input:
-      file SnpQcReport from SNPQC_files.collectFile(name: "${params.studyname}_SNPQC.txt", keepHeader: true, sort: true)
+      file SnpQcReport from SNPQC_files.collectFile(name: "${params.cohort_name}_SNPQC.txt", keepHeader: true, sort: true)
 
     output:
-      path("${params.studyname}_SNPQC.txt.gz")
+      path("${params.cohort_name}_SNPQC.txt.gz")
 
     script:
       """
