@@ -35,7 +35,7 @@ Or just download this from the gitlab/github download link and unzip.
 
 Go to folder `ConvertVcf2Hdf5` and modify the Slurm script template `submit_GenotypeConversion_pipeline_template.sh` with your input paths. This is an example template using Slurm scheduler.
 
-```
+```bash
 #!/bin/bash
 
 #SBATCH --time=24:00:00
