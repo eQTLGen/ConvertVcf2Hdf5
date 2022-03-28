@@ -68,7 +68,7 @@ class HASE:
 				elif study.covariates is not None:
 					self.covariates.append(study.covariates)
 				else:
-					raise ValueError('Study should have covariates or derivatives!')
+					raise ValueError('Study should have covariates.single or derivatives!')
 				if study.genotype is not None:
 					self.genotype.append(study.genotype)
 				if study.phenotype is not None:
@@ -106,5 +106,5 @@ class Study:
 		self.derivatives.folder.load()
 
 	def add_covariates(self, covariates_path):
-		self.covariates = Reader('covariates')
+		self.covariates = Reader('covariates.single')
 		self.covariates.start(covariates_path)

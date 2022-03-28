@@ -12,7 +12,10 @@ from hdgwas.tools import Reference, Mapper, Timer
 from hdgwas.hash import *
 import gc
 
-if __name__=='__main__':
+
+def main(argv=None):
+	if argv is None:
+		argv=sys.argv[1:]
 
 	os.environ['HASEDIR']=os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -26,7 +29,7 @@ if __name__=='__main__':
 	parser.add_argument('-probe_chunk',type=int,default=10000, help='Probes chunk')
 	parser.add_argument('-ref_chunk',type=int,default=10000, help='Reference chunk')
 	parser.add_argument('-chunk',type=int,default=2000000, help='Chunk size')
-	args = parser.parse_args()
+	args = parser.parse_args(argv)
 	print args
 
 	try:
@@ -238,6 +241,5 @@ if __name__=='__main__':
 		print probes.select('probes',where=flip_index[:10])
 
 
-
-
-
+if __name__=='__main__':
+	sys.exit(main())

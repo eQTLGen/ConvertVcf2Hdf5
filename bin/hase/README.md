@@ -1,5 +1,29 @@
 # HASE
-Framework for efficient high-dimensional association analyses. This is a fork of the [original repository](https://github.com/roshchupkin/hase).
+Framework for efficient high-dimensional association analyses.
+
+## Speed test
+`run_ExampleStudy.sh` script runs example of association study with **20.000** SNPs, **1000** phenotypes and **1000** subjects.
+It runs analysis by chunk of 5000 SNPs (which you can define in `config.py` file). Standard output looks like this:
+```
+START regression mode...
+reading file example_study.csv
+There are 1000 ids and 1000 columns 
+reading file example_study.csv
+There are 1000 ids and 3 columns 
+There are 1000 ids
+There are 1000 common ids
+...
+...
+...
+time to compute GWAS for 1000 phenotypes and 5000 SNPs .... 0.681949138641 sec
+Read 15000, processed 15000, total 20000
+...
+time to compute GWAS for 1000 phenotypes and 5000 SNPs .... 0.565479040146 sec
+Read 20000, processed 20000, total 20000
+...
+experiment finished in 10.0326929092 s
+```
+
 
 ## Installation HASE
 
@@ -7,36 +31,107 @@ Navigate to directory where you want to install HASE and clone this repository:
      ```
      git clone https://github.com/roshchupkin/hase.git
      ```
+## Update HASE 
 
-## requirements
+You can update HASE to newest version using `git`. Navigate to your HASE folder (where you cloned git repository):    
+     ```
+     git pull
+     ```
 
-1. Install the [HDF5](https://www.hdfgroup.org/downloads/hdf5/) software.
-   The HDF5_DIR has to be added to the environment variables.
+## Installation requirements
+
+Your system might already satisfied requirements, we suggest first try to run test example from Testing header below. 
+
+1. HDF5 software (python packages `tables` and `h5py` require this installation). If it is not installed on you system, 
+you can download to your home directory the latest source code [hdf5](https://www.hdfgroup.org/ftp/HDF5/releases/hdf5-1.8.16/src/).
     ```
-    export HDF5_DIR=~/hdf5<version-number>/hdf5/
+    tar -xf ~/hdf5-1.8.16.tar.gz
+    cd ~/hdf5-1.8.16/
+    ./configure 
+    make 
+    make install
     ```
-2. HASE uses [python](https://www.python.org/downloads/) version 2.7
-3. To install the required packages, use `pip install -r requirements.txt`. Where `requirements.txt` is the file located within the root folder of this repository.
+    Then you need to add one line to your `.bachrc` or `.bash_profile` file in your home directory.
+
+    ```
+    export HDF5_DIR=~/hdf5-1.8.16/hdf5/
+    ```
+
+2. BLAS and LAPACK linear algebra libraries for `scipy` and `numpy`. 
+     ```
+     sudo apt-get install gfortran libopenblas-dev liblapack-dev
+     ```
+    If this does not work or raise errors, then you might need to follow instruction from [scipy](http://www.scipy.org/scipylib/building/index.html) website. 
+
+3. You need to install python. You can download python from official website [python](https://www.python.org/) 
+or install one of the python distribution for scientific research, such as [Anaconda](https://store.continuum.io/cshop/anaconda/),
+[Enthought Canopy](https://www.enthought.com/products/canopy/) or [Python(x,y)](http://python-xy.github.io/).
+And then you need to install (or first uninstall) `scipy` and `numpy` python libraries.
+     ```
+     pip install scipy 
+     pip install numpy
+     ```
+ 
+    To check linkage in numpy:
+      ```
+      python
+      >>> import numpy as np
+      >>> np.__config__.show()
+      ```
+  
+    And you should see something like this:
+  
+      ```
+      lapack_opt_info:
+        libraries = ['openblas', 'openblas']
+        library_dirs = ['/cm/shared/apps/openblas/0.2.9-rc2/lib']
+        language = f77
+    blas_opt_info:
+        libraries = ['openblas', 'openblas']
+        library_dirs = ['/cm/shared/apps/openblas/0.2.9-rc2/lib']
+        language = f77
+    openblas_info:
+        libraries = ['openblas', 'openblas']
+        library_dirs = ['/cm/shared/apps/openblas/0.2.9-rc2/lib']
+        language = f77
+    blas_mkl_info:
+      NOT AVAILABLE
+      ```  
+     
+4. Install python packages listed in `requirements.txt` file. (you can use package manager which comes with your python `pip` or `conda` to install packages):
+    * bitarray
+    * argparse
+    * cython
+    * matplotlib
+    * scipy
+    * numpy
+    * pandas
+    * h5py
+    * tables
+
+## Testing
+
+1. Navigate to HASE directory and type `python hase.py -h`, you should see help message.
+2. Navigate to HASE directory and type `sh run_ExampleStudy.sh`, it should start running toy example of high-dimensional GWAS.
  
 ## User Guide
-Use [this wiki](https://github.com/roshchupkin/hase/wiki) for the, original, upstream wiki. Or [this wiki](https://github.com/CAWarmerdam/hase/wiki/Running-HASE-meta-analysis-in-the-example-study) for a guide on using hase with the example data.
+[wiki](https://github.com/roshchupkin/hase/wiki).
+## Requirements
+1. HDF5 software.
+2. BLAS and LAPACK linear algebra libraries.  
+3. Python. 
+4. Python packages:
+    * bitarray
+    * argparse
+    * cython
+    * matplotlib
+    * scipy
+    * numpy
+    * pandas
+    * h5py
+    * tables
+5. [Git](https://git-scm.com/).
 
-### Usage notes
-- Variants that do not have any variance across the samples are to be removed as this will cause an exception.
-- Tests have made apparent that converting VCF and PLINK files not always result in correct HDF5 files. It is recommended to check this prior to proceeding analysis.
-
-## Changes from the upstream repository
-- Fixed bug causing an exception when more than 1000 individuals were used.
-- Resolved bug causing the `--intercept` option having no effect.
-- Made version numbers of pip packages explicit.
-- Added commentary to code in places.
-- Lines 355-357 of hase.py were commented out because this caused pipeline to crash when >1 datasets were added.
-- Line 355 of /hdgwas/data.py were changed `self.chunk_size=10000 --> self.chunk_size=20000`.
-- For eQTLGen pipelines: removed folders with unit tests and test data, in order to keep it lightweight.
-
-### Interactions development branch
-- Implemented the possibility for using interaction terms.
-- Started implementing tests for both using, and not using interaction terms.
 
 ## Citation 
 If you use HASE framework, please cite:

@@ -18,9 +18,9 @@ if __name__=="__main__":
 
 	os.environ['HASEDIR']=os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 	parser = argparse.ArgumentParser(description='Script analyse results of HASE')
-	parser.add_argument("-r", required=True,help="path to hase results")
+	parser.add_argument("-r", required=True,help="path to model results")
 	parser.add_argument("-o", "--out", type=str, required=True,help="path to save result folder")
-	parser.add_argument("-df", type=float,default=None, help="degree of freedom = ( #subjects in study  - #covariates - 1 )")
+	parser.add_argument("-df", type=float,default=None, help="degree of freedom = ( #subjects in study  - #covariates.single - 1 )")
 	parser.add_argument("-N", type=int,default=None, help="file number to read")
 	#TODO (low) add reference panel
 	args = parser.parse_args()
