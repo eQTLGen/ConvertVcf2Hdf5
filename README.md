@@ -18,7 +18,7 @@ You can either clone it by using git (if available in HPC):
 
 `git clone TBA`
 
-Or just download this from the gitlab/github download link and unzip into `genotype_conversion` folder.
+Or just download this from the gitlab/github download link and unzip.
 
 ### Input files
 
@@ -31,10 +31,9 @@ Or just download this from the gitlab/github download link and unzip into `genot
 
 - Flag `--samplelist` enables to specify file with the list of sample IDs to include into conversion. If you follow eQTLGen phase II cookbook, this is not crucial: only genotype samples which are in the genotype-to-expression file are included to imputation and `.hdf5` conversion steps. 
 
-
 ### Running the genotype conversion command
 
-Go to folder `ConvertVcf2Hdf5` and modify the SLURM script template `submit_genotype_conversion_template.sh` with your input paths.
+Go to folder `ConvertVcf2Hdf5` and modify the Slurm script template `submit_GenotypeConversion_pipeline_template.sh` with your input paths. This is an example template using Slurm scheduler.
 
 ```
 #!/bin/bash
@@ -68,9 +67,9 @@ NXF_VER=21.10.6 ${nextflow_path}/nextflow run ConvertVcf2Hdf5.nf \
 -resume
 ```
 
-You can save the modified script version to informative name, e.g. `submit_genotype_conversion_[**CohortName_PlatformName**].sh`.
+You can save the modified script version to informative name, e.g. `submit_GenotypeConversion_pipeline_[**CohortName_PlatformName**].sh`.
 
-Then submit the job `sbatch submit_genotype_conversion_[**CohortName_PlatformName**].sh`. This initiates pipeline, makes analysis environment (using singularity or conda) and automatically submits the steps in correct order and parallel way. Separate `work` directory is made to the folder and contains all interim files.
+Then submit the job `sbatch submit_GenotypeConversion_pipeline_[**CohortName_PlatformName**].sh`. This initiates pipeline, makes analysis environment (using singularity or conda) and automatically submits the steps in correct order and parallel way. Separate `work` directory is made to the folder and contains all interim files.
 
 ### Monitoring and debugging
 
