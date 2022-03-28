@@ -21,7 +21,7 @@ cohortname=[your study name CohortName_ExpressionPlatformName]
 # Optional argument
 # --samplelist '[Path to file with sample IDs]'
 
-NXF_VER=20.10.0 ${nextflow_path}/nextflow run ConvertVcf2Hdf5.nf \
+NXF_VER=21.10.6 ${nextflow_path}/nextflow run ConvertVcf2Hdf5.nf \
 --vcf ${genopath} \
 --outdir ${outputpath} \
 --cohort_name ${cohortname} \
