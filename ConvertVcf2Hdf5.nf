@@ -56,7 +56,7 @@ log.info summary.collect { k,v -> "${k.padRight(21)}: $v" }.join("\n")
 log.info "======================================================="
 
 Channel.from(1..22)
-  .map { chr -> tuple("$chr", file("${params.vcf}/*chr${chr}*.vcf.gz")) }
+  .map { chr -> tuple("$chr", file("${params.vcf}/*chr${chr}.filtered.vcf.gz")) }
   .into { chr_vcf_pairs_fixnames; chr_vcf_pairs_count_samples }
 
 process CountSamples {
@@ -99,7 +99,7 @@ process FixVariantNames {
       """
 }
 
-vcf_fixed_snp_names_ch.into{VcfToChunkVcf, VcfToTabix}
+vcf_fixed_snp_names_ch.into{VcfToChunkVcf; VcfToTabix}
 
 process MakeIndAndProbe {
 

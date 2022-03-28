@@ -24,7 +24,7 @@ Or just download this from the gitlab/github download link and unzip.
 
 #### Required
 
-- Input .vcf folder should contain 22 bgzipped .vcf.gz files.
+- Input .vcf folder should contain 22 bgzipped .vcf.gz files. Has to be in the format `*chr[1-22].filtered.vcf.gz`. Best to use the direct output of [eQTLGen imputation pipeline](TBA).
 - Pipeline assumes that there is dosage (DS) field available in the imputed `.vcf` file. This is the case for the output of eQTLGen imputation pipeline.
 
 #### Optional
