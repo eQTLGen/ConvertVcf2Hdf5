@@ -120,6 +120,6 @@ Original method paper for HASE framework:
 
 ### Contacts
 
-For this Nextflow pipeline: urmo.vosa@gmail.com
+For this Nextflow pipeline: urmo.vosa at gmail.com
 
 For the method of HASE, find contacts from [original HASE repo](https://github.com/roshchupkin/hase)
