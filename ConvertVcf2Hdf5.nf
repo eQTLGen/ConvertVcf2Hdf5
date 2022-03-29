@@ -117,7 +117,7 @@ process MakeIndAndProbe {
       mkdir -p InputPath
       mv ${InputFiles} InputPath/.
 
-      bash $baseDir/bin/helperscripts/VCF2hdf5_SortedChr.sh InputPath . $baseDir/bin/hase/ ${params.studyname}
+      bash $baseDir/bin/helperscripts/VCF2hdf5_SortedChr.sh InputPath . $baseDir/bin/hase/ ${params.cohort_name}
 
       # Remove unnecessary files
       rm -rf ./tmp_files
@@ -162,7 +162,7 @@ process FixChunkSize {
 
       echo \${i}
 
-      mv \${i} \${ind}_${params.studyname}.txt
+      mv \${i} \${ind}_${params.cohort_name}.txt
       ind=\$((\$ind + 1))
 
       done
@@ -186,7 +186,7 @@ process ConvertGenotypeToHdf5 {
 
       mkdir output
 
-      python $baseDir/bin/hase/tools/VCF2hdf5.py -flag chunk -id \${chunk_id} -data ${InpHdf5Chunks} -out output -study_name ${params.studyname}
+      python $baseDir/bin/hase/tools/VCF2hdf5.py -flag chunk -id \${chunk_id} -data ${InpHdf5Chunks} -out output -study_name ${params.cohort_name}
 
       mkdir genotype
       mv output/genotype/*.h5 genotype/
