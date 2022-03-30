@@ -57,6 +57,7 @@ log.info "======================================================="
 
 Channel.from(1..22)
   .map { chr -> tuple("$chr", file("${params.vcf}/*chr${chr}.filtered.vcf.gz")) }
+  .ifEmpty { exit 1, "Input .vcf.gz files not found!" } 
   .into { chr_vcf_pairs_fixnames; chr_vcf_pairs_count_samples }
 
 process CountSamples {
