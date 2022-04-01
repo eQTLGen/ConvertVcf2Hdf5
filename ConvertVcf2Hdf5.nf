@@ -100,7 +100,24 @@ process FixVariantNames {
       """
 }
 
-vcf_fixed_snp_names_ch.into{VcfToChunkVcf; VcfToTabix}
+vcf_fixed_snp_names_ch.into{VcfToRemoveInfo; VcfToTabix}
+
+process RemoveInfoField {
+
+    tag {"RemoveInfo_$chr"}
+
+    input:
+      tuple chr, file(vcf) from VcfToRemoveInfo
+
+    output:
+      tuple chr, file() into VcfToChunkVcf
+
+    script:
+      """
+      bcftools annotate -x INFO ${vcf} | bgzip -c > ${chr}_FixedSnpNamesInfoRemoved.vcf.gz
+      """
+}
+
 
 process MakeIndAndProbe {
 
