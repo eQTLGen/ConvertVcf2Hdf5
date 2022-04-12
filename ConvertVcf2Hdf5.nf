@@ -110,7 +110,7 @@ process RemoveInfoField {
       tuple chr, file(vcf) from VcfToRemoveInfo
 
     output:
-      tuple chr, file() into VcfToChunkVcf
+      tuple chr, file('*_FixedSnpNamesInfoRemoved.vcf.gz') into VcfToChunkVcf
 
     script:
       """
