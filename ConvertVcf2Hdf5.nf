@@ -90,7 +90,6 @@ process FixVariantNames {
 
     output:
       tuple chr, file("${chr}_FixedSnpNames.vcf.gz") into vcf_fixed_snp_names_ch
-      file("${chr}_FixedSnpNames.vcf.gz") into VcfToMakeIndAndProbe 
 
     script:
       """
@@ -100,7 +99,7 @@ process FixVariantNames {
       """
 }
 
-vcf_fixed_snp_names_ch.into{VcfToRemoveInfo; VcfToTabix}
+vcf_fixed_snp_names_ch.into{VcfToRemoveInfo; VcfToTabix; VcfToChunkVcf}
 
 process RemoveInfoField {
 
@@ -110,7 +109,7 @@ process RemoveInfoField {
       tuple chr, file(vcf) from VcfToRemoveInfo
 
     output:
-      tuple chr, file('*_FixedSnpNamesInfoRemoved.vcf.gz') into VcfToChunkVcf
+      file("${chr}_FixedSnpNamesInfoRemoved.vcf.gz") into VcfToMakeIndAndProbe 
 
     script:
       """
@@ -245,7 +244,8 @@ process CalculateSnpQcMetrics {
         -o ${chr}_statistics
 
       bcftools query -f "%IMPUTED\\t%TYPED\\t%TYPED_ONLY\\n" ${InputToSnpQc} > ${chr}_imputation_info
-      paste -d '\t' ${chr}_statistics.vars ${chr}_imputation_info > ${chr}_statistics.vars
+      awk 'BEGIN{print "IMPUTED\\tTYPED\\tTYPED_ONLY"}1' ${chr}_imputation_info >> ${chr}_imputation_info2
+      paste -d '\\t' ${chr}_statistics.vars ${chr}_imputation_info > ${chr}_statistics.vars
       """
 }
 
