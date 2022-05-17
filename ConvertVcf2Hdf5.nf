@@ -245,7 +245,8 @@ process CalculateSnpQcMetrics {
 
       bcftools query -f "%IMPUTED\\t%TYPED\\t%TYPED_ONLY\\n" ${InputToSnpQc} > ${chr}_imputation_info
       awk 'BEGIN{print "IMPUTED\\tTYPED\\tTYPED_ONLY"}1' ${chr}_imputation_info >> ${chr}_imputation_info2
-      paste -d '\\t' ${chr}_statistics.vars ${chr}_imputation_info > ${chr}_statistics.vars
+      paste -d '\\t' ${chr}_statistics.vars ${chr}_imputation_info2 > ${chr}_statistics2.vars
+      mv ${chr}_statistics2.vars ${chr}_statistics.vars
       """
 }
 
