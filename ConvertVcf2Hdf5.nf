@@ -58,7 +58,7 @@ log.info "======================================================="
 Channel.from(1..22)
   .map { chr -> tuple("$chr", file("${params.vcf}/*chr${chr}.filtered.vcf.gz")) }
   .ifEmpty { exit 1, "Input .vcf.gz files not found!" } 
-  .into { chr_vcf_pairs_fixnames; chr_vcf_pairs_count_samples }
+  .into { chr_vcf_pairs; chr_vcf_pairs_count_samples }
 
 process CountSamples {
 
@@ -81,25 +81,7 @@ process CountSamples {
 NumberOfSamples = SampleList.splitCsv().count().get()
 log.info "Number of detected samples: " + NumberOfSamples
 
-process FixVariantNames {
-
-    tag {"FixVariantNames_$chr"}
-
-    input:
-      tuple chr, file(vcf) from chr_vcf_pairs_fixnames
-
-    output:
-      tuple chr, file("${chr}_FixedSnpNames.vcf.gz") into vcf_fixed_snp_names_ch
-
-    script:
-      """
-      bcftools view --max-alleles 2 ${vcf} \
-      | awk 'BEGIN {FS="\\t"; OFS="\\t"}; {if (substr(\$0,0,1) !~ "#"){\$3="chr"  \$1  ":"  \$2  "_"  \$4  "_" \$5;}print \$0;}' \
-      | bgzip -c > ${chr}_FixedSnpNames.vcf.gz
-      """
-}
-
-vcf_fixed_snp_names_ch.into{VcfToRemoveInfo; VcfToTabix; VcfToChunkVcf}
+chr_vcf_pairs.into{VcfToRemoveInfo; VcfToTabix; VcfToChunkVcf}
 
 process RemoveInfoField {
 
