@@ -16,7 +16,7 @@ This is Nextflow pipeline for converting imputed .vcf file folder into hdf5 form
 
 You can either clone it by using git (if available in HPC):
 
-`git clone TBA`
+`git clone https://github.com/eQTLGen/ConvertVcf2Hdf5.git`
 
 Or just download this from the gitlab/github download link and unzip.
 
