@@ -385,22 +385,20 @@ class MetaPhenotype(object):
     def __init__(self, phen, protocol=None, include=None, exclude=None,
                  allow_missingness=False):
         # @timing
-        def _check(map, keys, index=None, allow_missingness=False):
+        def _check(map, keys, allow_missingness=False):
             values = np.array(map.dic.values())
             result = {}
             if allow_missingness:
                 r = (values == -1).all(axis=1)
             else:
                 r = (values == -1).any(axis=1)
-            if index is not None:
-                r[np.where(index == False)[0]] = True
             if np.sum(r) == values.shape[0]:
                 raise ValueError('There is no common names between studies')
             for i, k in enumerate(keys):
                 result[k] = values[~r, i]
             return result, np.array(map.dic.keys())[~r]
 
-        self.chunk_size = 20000
+        self.chunk_size = 5000
         self.exclude = None
         self.include = None
         self.name = None
@@ -408,17 +406,9 @@ class MetaPhenotype(object):
         self.keys = []
         self.keep_index = None
         if include is not None:
-            self.include = pd.DataFrame.from_csv(include, index_col=None)
-            print 'Include:'
-            print self.include.head()
-            if 'ID' not in self.include.columns:
-                raise ValueError('{} table does not have ID column for phenotypes'.format(include))
+            self.include = Mapper.load_variant_filter_dataframes(include, (("ID",),))
         if exclude is not None:
-            self.exclude = pd.DataFrame.from_csv(exclude, index_col=None)
-            print 'Exclude:'
-            print self.exclude.head()
-            if 'ID' not in self.exclude.columns:
-                raise ValueError('{} table does not have ID column for phenotypes'.format(exclude))
+            self.exclude = Mapper.load_variant_filter_dataframes(exclude, (("ID",),))
         if protocol is None:
             for i, k in enumerate(phen):
                 phen_names = []
@@ -434,16 +424,28 @@ class MetaPhenotype(object):
                     self.mapper.push(phen_names, name=i, new_id=True)
 
                 self.keys.append(i)
-            if self.exclude is not None or self.include is not None:
-                phen_names = pd.Series(self.mapper.dic.keys())
-                phen_names = phen_names[phen_names.isin(self.include.ID)] if self.include is not None else phen_names
-                phen_names = phen_names[~phen_names.isin(self.exclude.ID)] if self.exclude is not None else phen_names
-                self.keep_index = pd.Series(self.mapper.dic.keys()).isin(phen_names)
-            print np.sum(self.keep_index)
-            self.order, self.phen_names = _check(self.mapper, self.keys, index=self.keep_index,
-                                                 allow_missingness=allow_missingness)
+
+            if self.exclude is not None:
+                if "cohort" in self.exclude.index.names:
+                    for cohort, row in self.exclude.index:
+                        self.mapper.dic[self.exclude.loc[(cohort, row), "ID"]][cohort] = -1
+
+            if self.include is not None:
+                for phenotype, values in self.mapper.dic.items():
+                    # Replace values by list wherein values not in include are removed
+                    phenotype_presence = (self.include["ID"] == phenotype)
+                    new_values = np.array([-1] * len(phen))
+                    if phenotype_presence.sum() > 0:
+                        cohort_indices = (
+                            self.include.loc[phenotype_presence]
+                                .index.get_level_values(level="cohort"))
+
+                        new_values[cohort_indices] = np.array(values)[cohort_indices].tolist()
+                    self.mapper.dic[phenotype] = new_values.tolist()
+
+            self.order, self.phen_names = _check(self.mapper, self.keys, allow_missingness=allow_missingness)
             self.n_phenotypes = len(self.order[self.keys[0]])
-            print ('Loaded {} common phenotypes for meta-analysis'.format(self.n_phenotypes))
+            print ('Loaded {} phenotypes for meta-analysis'.format(self.n_phenotypes))
             self.processed = 0
         else:
             if not protocol.enable:
@@ -493,7 +495,7 @@ class MetaPhenotype(object):
         # We want to adjust the
 
         for study_index in self.keys:
-            chunked_order[study_index] = self.order[study_index][np.where(self.phen_names == phenotype_names)]
+            chunked_order[study_index] = self.order[study_index][np.where(np.in1d(self.phen_names, phenotype_names))[0]]
 
         return chunked_order
 
@@ -526,6 +528,32 @@ class MetaPhenotype(object):
                 a = b
 
         return phenotype, self.phen_names[start:finish]
+
+    def __iter__(self):
+        return self
+
+    def next(self):
+        # Get the next phenotype chunk.
+        with Timer() as t_ph:
+            # Phen names is the
+            phenotype, phenotype_names = self.get()
+            phenotype_indices = self.get_phenotype_indices(phenotype_names)
+        print("Time to get PH {}s".format(t_ph.secs))
+
+        # If the phenotype type is None, the loop is done...
+        if isinstance(phenotype, type(None)):
+            # Reset the processed phenotypes when the loop is done.
+            # With the next chunk of SNPs we need to do these again
+            self.processed = 0
+            # The encoded interactions are also processed at the
+            # same rate as the phenotypes.
+            # Reset the number of processed values for this as well.
+            print('All phenotypes processed!')
+            raise StopIteration
+        print("Merged phenotype shape {}".format(phenotype.shape))
+
+        return phenotype, phenotype_names, phenotype_indices
+
 
 
 class MetaParData(object):
@@ -1058,7 +1086,7 @@ class CSVFolder(Folder):
 
             self._data = Data()
             self._data.chunk_size = 1000
-            self._data._data = df[df.columns[1:]].as_matrix()
+            self._data._data = df[df.columns[1:]].values
             self._data.id = np.array(df[df.columns[0]])
             if self._id is None:
                 self._id = self._data.id

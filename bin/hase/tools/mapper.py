@@ -122,8 +122,7 @@ def main(argv=None):
 			print a.head()
 		a['counter_prob']=np.arange(p_start_i,p_stop_i,dtype='int32')
 
-		reference=Reference()
-		reference.name=args.ref_name
+		reference=Reference(args.ref_name)
 		reference.chunk=args.ref_chunk
 		reference.load()
 		counter_ref=0

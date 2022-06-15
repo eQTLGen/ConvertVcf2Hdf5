@@ -113,7 +113,7 @@ def haseregression(phen,gen,cov, mapper, Analyser, maf,intercept=True, interacti
 			t_stat, SE=HASE(b4, a_inv, b_cov, C, N_con, DF)
 			print('Read {}, processed {}, total {}'.format(SNP[0],SNP[1],SNP[2] ))
 			Analyser.t_stat=t_stat
-			Analyser.SE=SE
+			Analyser.standard_error=SE
 			if mapper is not None and mapper.cluster == 'y':
 				Analyser.cluster=True
 				Analyser.chunk=ch

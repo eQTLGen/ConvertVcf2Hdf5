@@ -1,6 +1,9 @@
+from __future__ import print_function
+
 import sys
 import os
 import numpy as np
+
 from config import MAPPER_CHUNK_SIZE, basedir, CONVERTER_SPLIT_SIZE, PYTHON_PATH
 from hdgwas.meta_classic import CohortAnalyser
 from hdgwas.meta_classic import ClassicMetaAnalyser
@@ -35,7 +38,6 @@ HEAD += "* (C) 2015-2017 Gennady Roshchupkin and Hieab Adams\n"
 HEAD += "* Erasmus MC, Rotterdam /  Department of Medical Informatics, Radiology and Epidemiology \n"
 HEAD += "* GNU General Public License v3\n"
 HEAD += "*********************************************************************\n"
-
 
 def main(argv=None):
     if argv is None:
@@ -92,10 +94,18 @@ def main(argv=None):
     parser.add_argument('-ref_name', type=str, default='1000Gp1v3_ref', help='Reference panel name')
 
     # ADDITIONAL SETTINGS
-    parser.add_argument("-snp_id_inc", type=str, help="path to file with SNPs id to include to analysis")
-    parser.add_argument("-snp_id_exc", type=str, help="path to file with SNPs id to exclude from analysis")
-    parser.add_argument("-ph_id_inc", type=str, help="path to file with phenotype id to exclude from analysis")
-    parser.add_argument("-ph_id_exc", type=str, help="path to file with phenotype id to exclude from analysis")
+    parser.add_argument(
+        "-snp_id_inc", type=str, nargs='+',
+        help="path to file with SNPs id to include to analysis")
+    parser.add_argument(
+        "-snp_id_exc", type=str, nargs='+',
+        help="path to file with SNPs id to exclude from analysis")
+    parser.add_argument(
+        "-ph_id_inc", type=str, nargs='+',
+        help="path to file with phenotype id to exclude from analysis")
+    parser.add_argument(
+        "-ph_id_exc", type=str, nargs='+',
+        help="path to file with phenotype id to exclude from analysis")
 
     # parser.add_argument("-ind_id_inc", type=str, help="path to file with individuals id to include to analysis") #TODO (low)
     # parser.add_argument("-ind_id_exc", type=str, help="path to file with individuals id to exclude from analysis")#TODO (low)
@@ -152,7 +162,7 @@ def main(argv=None):
     if args.mapper_chunk:
         MAPPER_CHUNK_SIZE = args.mapper_chunk
     ARG_CHECKER = Checker()
-    print args
+    print(args)
     os.environ['HASEOUT'] = args.out
 
     if args.cluster == 'y':
@@ -160,9 +170,9 @@ def main(argv=None):
             if args.node[1] > args.node[0]:
                 raise ValueError('Node # {} > {} total number of nodes'.format(args.node[1], args.node[0]))
 
-    if not os.path.isdir(args.out):
-        print "Creating output folder {}".format(args.out)
-        os.mkdir(args.out)
+    if not os.path.exists(args.out):
+        print("Creating output folder {}".format(args.out))
+        os.makedirs(args.out)
 
     if args.np:
         check_np()
@@ -377,7 +387,7 @@ def main(argv=None):
                 partial_derivatives_folders[i].start(j, study_name=args.study_name[i])
                 partial_derivatives_folders[i].folder.load()
 
-        print "Time used to load partial derivatives is {}s".format(t.secs)
+        print("Time used to load partial derivatives is {}s".format(t.secs))
 
         # Create a list containing booleans representing the presence
         # of the b4 data in the partial derivatives folders
@@ -406,8 +416,8 @@ def main(argv=None):
                 for i, j in enumerate(args.phenotype):
                     phen.append(Reader('phenotype'))
                     phen[i].start(j)
-            print "Time to set pheno {} s".format(t.secs)
-            meta_phen = MetaPhenotype(phen, include=args.ph_id_inc, exclude=args.ph_id_exc)
+            print("Time to set pheno {} s".format(t.secs))
+            meta_phen = MetaPhenotype(phen, include=args.ph_id_inc[0], exclude=args.ph_id_exc[0])
 
             N_studies = len(args.genotype)
 
@@ -416,7 +426,7 @@ def main(argv=None):
                 for i, j in enumerate(args.genotype):
                     gen.append(Reader('genotype'))
                     gen[i].start(j, hdf5=args.hdf5, study_name=args.study_name[i], ID=False)
-            print "Time to set gen {}s".format(t.secs)
+            print("Time to set gen {}s".format(t.secs))
 
             # Create a dictionary with the datasets for obtaining
             # the indices of shared identifiers
@@ -433,9 +443,9 @@ def main(argv=None):
                         # Have to check if these are the correct arguments for .start(...)
                         encoded_interaction_folders[i].start(j)
                 datasets["interaction"] = tuple(i.folder._data for i in encoded_interaction_folders)
-                encoded_interactions = MetaPhenotype(encoded_interaction_folders, include=args.ph_id_inc,
-                                                     exclude=args.ph_id_exc)
-                print "Time used to load encoded interaction data: {}s".format(t.secs)
+                encoded_interactions = MetaPhenotype(encoded_interaction_folders, include=args.ph_id_inc[0],
+                                                     exclude=args.ph_id_exc[0])
+                print("Time used to load encoded interaction data: {}s".format(t.secs))
 
             # Get common ids
             row_index, intersecting_identifiers = get_intersecting_individual_indices(datasets)
@@ -469,7 +479,7 @@ def main(argv=None):
                 with Timer() as t_g:
                     genotype = merge_genotype(gen, variant_indices, mapper)
                     genotype = genotype[:, row_index["genotype"]]
-                print "Time to get G {}s".format(t_g.secs)
+                print("Time to get G {}s".format(t_g.secs))
             # TODO (low) add interaction
 
             a_test = np.array([])
@@ -508,7 +518,7 @@ def main(argv=None):
                                                                     regression_model=regression_model,
                                                                     random_effect_intercept=args.effect_intercept)
 
-            print "Time to get PD {}s".format(t_pd.secs)
+            print("Time to get PD {}s".format(t_pd.secs))
 
             MAF = meta_pard.maf_pard(SNPs_index=variant_indices)
 
@@ -533,7 +543,7 @@ def main(argv=None):
                     b4 = b4[filter, :]
                 Analyser.rsid = Analyser.rsid[filter]
                 if a_test.shape[0] == 0:
-                    print 'NO SNPs > MAF'
+                    print('NO SNPs > MAF')
                     continue
             else:
                 Analyser.maf = MAF
@@ -547,7 +557,7 @@ def main(argv=None):
 
             number_of_variable_terms = a_test.shape[2]
             number_of_constant_terms = a_inv.shape[1] - number_of_variable_terms
-            print 'There are {} subjects in study.'.format(meta_pard.get_n_id())
+            print('There are {} subjects in study.'.format(meta_pard.get_n_id()))
 
             DF = (sample_size - a_inv.shape[1])
 
@@ -559,7 +569,7 @@ def main(argv=None):
 
                     with Timer() as t_ph:
                         phenotype, phen_names = meta_phen.get()
-                    print "Time to get PH {}s".format(t_ph.secs)
+                    print("Time to get PH {}s".format(t_ph.secs))
 
                     # If the phenotype type is None, the loop is done...
                     if isinstance(phenotype, type(None)):
@@ -571,7 +581,7 @@ def main(argv=None):
                         # Reset the number of processed values for this as well.
                         if encoded_interactions:
                             encoded_interactions.processed = 0
-                        print 'All phenotypes processed!'
+                        print('All phenotypes processed!')
                         break
                     print ("Merged phenotype shape {}".format(phenotype.shape))
                     # TODO (middle) select phen from protocol
@@ -581,10 +591,10 @@ def main(argv=None):
                     phen_ind_dic = {k: i for i, k in enumerate(keys)}
                     phen_ind = np.array([phen_ind_dic.get(i, -1) for i in phen_names])
                     if np.sum(phen_ind == -1) == len(phen_ind):
-                        print 'There is no common ids in phenotype files and PD data!'
+                        print('There is no common ids in phenotype files and PD data!')
                         break
                     else:
-                        print 'There are {} common ids in phenotype files and PD data!'.format(np.sum(phen_ind != -1))
+                        print('There are {} common ids in phenotype files and PD data!'.format(np.sum(phen_ind != -1)))
                     C_test = C[phen_ind]
                     b_cov_test = b_cov[:, phen_ind]
 
@@ -654,7 +664,7 @@ def main(argv=None):
                 partial_derivatives_folders[i].start(j, study_name=args.study_name[i])
                 partial_derivatives_folders[i].folder.load()
 
-        print "Time used to load partial derivatives is {}s".format(t.secs)
+        print("Time used to load partial derivatives is {}s".format(t.secs))
 
         # Create a list containing booleans representing the presence
         # of the b4 data in the partial derivatives folders
@@ -687,7 +697,7 @@ def main(argv=None):
             for i, j in enumerate(args.phenotype):
                 phen.append(Reader('phenotype'))
                 phen[i].start(j)
-        print "Time to set pheno {} s".format(t.secs)
+        print("Time to set pheno {} s".format(t.secs))
         meta_phen = MetaPhenotype(phen,
                                   include=args.ph_id_inc,
                                   exclude=args.ph_id_exc,
@@ -698,7 +708,7 @@ def main(argv=None):
             for i, j in enumerate(args.genotype):
                 gen.append(Reader('genotype'))
                 gen[i].start(j, hdf5=args.hdf5, study_name=args.study_name[i], ID=False)
-        print "Time to set gen {}s".format(t.secs)
+        print("Time to set gen {}s".format(t.secs))
 
         # Create a dictionary with the datasets for obtaining
         # the indices of shared identifiers
@@ -738,39 +748,50 @@ def main(argv=None):
                 covariate_indices[key] = np.array(indices).astype(int)
 
         classic_meta_analyser = ClassicMetaAnalyser(
-            meta_phen, meta_pard, intersecting_identifiers, row_index, args.study_name, args.out,
-            covariate_indices=covariate_indices, maf_threshold=args.maf)
+            meta_phen, meta_pard, intersecting_identifiers, row_index,
+            args.study_name, args.out,
+            covariate_indices=covariate_indices, maf_threshold=args.maf,
+            t_statistic_threshold=args.thr)
 
         # Start looping over all genotype chunks
         # We use while true, since implementing an iterator is apparently
         # too much work...
         while True:
+            # We start with an empty chunk...
             ch = None
+
+            # Then we check whether or not we are working in an environment
+            # wherein analysis is split over multiple nodes.
+
+            # This determines how the current chunk should be obtained.
             if mapper.cluster == 'n':
                 variant_indices, keys = mapper.get(
                     allow_missingness=args.allow_missingness)
-            else:
+            elif mapper.cluster == 'y':
                 ch = mapper.chunk_pop()
                 if ch is None:
                     break
-                variant_indices, keys = mapper.get(chunk_number=ch, allow_missingness=args.allow_missingness)
+                variant_indices, keys = mapper.get(
+                    chunk_number=ch, allow_missingness=args.allow_missingness)
 
+            # Now we can check if we have looped through all genotype chunks...
             if isinstance(variant_indices, type(None)):
                 break
 
+            # And we can get the genotypes for this chunk...
             if is_no_b4_present_in_partial_derivatives:
                 with Timer() as t_g:
                     genotype = merge_genotype(gen, variant_indices, mapper)
-                print "Time to get G {}s".format(t_g.secs)
+                print("Time to get G {}s".format(t_g.secs))
 
-            classic_meta_analyser.analyse_genotype_chunk(
-                genotype, keys, variant_indices)
-            if ch is not None:
-                classic_meta_analyser.save_results(chunk=ch,
-                                                   node=mapper.node[1])
+            # Now analyse the genotype chunk
+            if mapper.cluster == 'y':
+                classic_meta_analyser.analyse_genotype_chunk(
+                    genotype, keys, variant_indices,
+                    chunk=ch, node=mapper.node[1])
             else:
-                classic_meta_analyser.save_results()
-
+                classic_meta_analyser.analyse_genotype_chunk(
+                    genotype, keys, variant_indices)
 
 
     ################################### TO DO EVERYTHING IN ONE GO ##############################
@@ -809,20 +830,20 @@ def main(argv=None):
             mapper.chunk_size = MAPPER_CHUNK_SIZE
             mapper.genotype_names = args.study_name
             mapper.reference_name = args.ref_name
-            if args.snp_id_inc is not None:
-                mapper.include = pd.DataFrame.from_csv(args.snp_id_inc, index_col=None)
-                print 'Include:'
-                print mapper.include.head()
+            if args.snp_id_inc[0] is not None:
+                mapper.include = pd.DataFrame.from_csv(args.snp_id_inc[0], index_col=None)
+                print('Include:')
+                print(mapper.include.head())
                 if 'ID' not in mapper.include.columns and (
                         'CHR' not in mapper.include.columns or 'bp' not in mapper.include.columns):
-                    raise ValueError('{} table does not have ID or CHR,bp columns'.format(args.snp_id_inc))
-            if args.snp_id_exc is not None:
-                mapper.exclude = pd.DataFrame.from_csv(args.snp_id_exc, index_col=None)
-                print 'Exclude:'
-                print mapper.exclude.head()
+                    raise ValueError('{} table does not have ID or CHR,bp columns'.format(args.snp_id_inc[0]))
+            if args.snp_id_exc[0] is not None:
+                mapper.exclude = pd.DataFrame.from_csv(args.snp_id_exc[0], index_col=None)
+                print('Exclude:')
+                print(mapper.exclude.head())
                 if 'ID' not in mapper.exclude.columns and (
                         'CHR' not in mapper.exclude.columns or 'bp' not in mapper.exclude.columns):
-                    raise ValueError('{} table does not have ID or CHR,bp columns'.format(args.snp_id_exc))
+                    raise ValueError('{} table does not have ID or CHR,bp columns'.format(args.snp_id_exc[0]))
             mapper.load(args.mapper)
             mapper.load_flip(args.mapper)
             mapper.cluster = args.cluster
@@ -868,20 +889,10 @@ def load_mapper(mapper_chunk_size, study_name, ref_name,
     mapper.genotype_names = study_name
     mapper.reference_name = ref_name  # Reference dataset
     # Check if we are to exlude, or explicitly include some set of variants
-    if snp_id_inc is not None:  # If this is not none the argument contains a table of snps to include
-        mapper.include = pd.DataFrame.from_csv(snp_id_inc, index_col=None)
-        print 'Include:'
-        print mapper.include.head()
-        if 'ID' not in mapper.include.columns and (
-                'CHR' not in mapper.include.columns or 'bp' not in mapper.include.columns):
-            raise ValueError('{} table does not have ID or CHR,bp columns'.format(args.snp_id_inc))
-    if snp_id_exc is not None:  # If this is not None the argument contains a table of snps to exclude
-        mapper.exclude = pd.DataFrame.from_csv(snp_id_exc, index_col=None)
-        print 'Exclude:'
-        print mapper.exclude.head()
-        if 'ID' not in mapper.exclude.columns and (
-                'CHR' not in mapper.exclude.columns or 'bp' not in mapper.exclude.columns):
-            raise ValueError('{} table does not have ID or CHR,bp columns'.format(snp_id_exc))
+    if snp_id_inc is not None:  # If this is not none the argument contains table(s) of snps to include
+        mapper.load_filter_include(snp_id_inc)
+    if snp_id_exc is not None:  # If this is not None the argument contains table(s) of snps to exclude
+        mapper.load_filter_exclude(snp_id_exc)
     # Load the mapper files for each of the datasets
     mapper.load(mapper_folder)  # Load the mapper files
     # Load the flip files for each of the datasets
