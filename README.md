@@ -109,6 +109,7 @@ Urmo Võsa (Institute of Genomics, University of Tartu, Tartu, Estonia) incorpor
 - Added commentary to code in places.
 - Setting /hdgwas/data.py were changed `self.chunk_size=10000 --> self.chunk_size=20000`.
 - For eQTLGen pipelines: removed folders with unit tests and test data, in order to keep the tool lightweight.
+- Fixed script tools/VCF2hdf5.py --> tools/VCF2hdf5_fixed.py
 
 ### Citation
 

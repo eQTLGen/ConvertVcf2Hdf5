@@ -69,7 +69,7 @@ def haseregression(phen,gen,cov, mapper, Analyser, maf,intercept=True, interacti
 
 			filter=(MAF>maf) & (MAF<1-maf) & (MAF!=0.5)
 			genotype=genotype[filter,:]
-			Analyser.MAF=MAF[filter]
+			Analyser.maf=MAF[filter]
 			Analyser.rsid=Analyser.rsid[filter]
 
 			if genotype.shape[0]==0:
@@ -77,7 +77,7 @@ def haseregression(phen,gen,cov, mapper, Analyser, maf,intercept=True, interacti
 				continue
 
 		else:
-			Analyser.MAF=MAF
+			Analyser.maf=MAF
 
 		SNP[1]+=genotype.shape[0]
 
