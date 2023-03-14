@@ -8,7 +8,7 @@ This is Nextflow pipeline for converting imputed .vcf file folder into hdf5 form
 
 - Have access to HPC with multiple cores.
 - Have Bash >=3.2 installed.
-- Have Java 8 installed.
+- Have Java 11 installed.
 - Have Slurm scheduler managing the jobs in the HPC.
 - HPC has Singularity installed and running.
 
@@ -67,6 +67,12 @@ NXF_VER=21.10.6 ${nextflow_path}/nextflow run ConvertVcf2Hdf5.nf \
 ```
 
 You can save the modified script version to informative name, e.g. `submit_GenotypeConversion_pipeline_[**CohortName_PlatformName**].sh`.
+
+You can select scheduler type by adjusting the profile as following:
+
+- Slurm: `-profile slurm,singularity`
+- PBS/TORQUE: `-profile pbs,singularity`
+- SGE: `-profile sge,singularity`
 
 Then submit the job `sbatch submit_GenotypeConversion_pipeline_[**CohortName_PlatformName**].sh`. This initiates pipeline, makes analysis environment (using singularity or conda) and automatically submits the steps in correct order and parallel way. Separate `work` directory is made to the folder and contains all interim files.
 
